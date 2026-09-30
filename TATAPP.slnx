@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/TATAPP.Core/TATAPP.Core.csproj" />
+    <Project Path="src/TATAPP.App/TATAPP.App.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/TATAPP.Tests/TATAPP.Tests.csproj" />
+  </Folder>
+</Solution>

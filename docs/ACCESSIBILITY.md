@@ -1,0 +1,24 @@
+# Accessibility contract
+
+TATAPP treats accessibility as application behavior rather than descriptive documentation alone.
+
+- Buttons, radio buttons, dropdowns, sliders, the preview, and the 3D viewport expose explicit UI Automation names and help text.
+- Native WPF controls retain familiar Narrator, NVDA, JAWS, keyboard, touch, and High Contrast behavior.
+- Access keys are declared in control labels and the tab sequence follows the visual workflow: capture/select, save, preview, anatomical controls, and development slider.
+- The default state is explicitly announced as a male model, 163 centimeters (average Filipino adult), light-brown to medium-tan Filipino complexion, with the outer left upper arm from deltoid to elbow selected.
+- A sighted user's body-surface tap updates the native **Body region** dropdown. A keyboard or JAWS user's dropdown choice updates and orients the visual model. Rotation, zoom, sex, size, and complexion changes update a polite anatomical-state live region.
+- Each anatomical development stage first shows meaningful surrounding anatomy and then smoothly moves to a close view of the selected surface. The visible and accessible state identifies that context-to-detail behavior; completing the non-speech camera movement refreshes state without forcing a second JAWS announcement.
+- The preview is keyboard-focusable and its accessible name changes to identify the source file, current stage, and a concise explanation of the visual result.
+- A polite live region announces consequential state changes without interrupting every one-percent slider movement. Stage announcements occur only when the semantic stage changes.
+- **Offline AI Describe** exposes an explicit checkbox name, help text, and state through UI Automation. Its description region is keyboard-focusable and raises polite `LiveRegionChanged` events that JAWS can read. Native UI Automation also preserves interoperability with NVDA and Narrator; browser ARIA attributes are not applicable to a WPF desktop window.
+- Offline descriptions are generated from each actually rendered stage, not inferred from the filename. Flat stages use the deterministic pixel render; anatomical stages use a screenshot of the actual settled, region-focused WPF 3D viewport after the camera plan reaches its close frame. The prompt requests concrete subject, composition, contour, contrast, lost-detail, and supported surface-wrap information while prohibiting unsupported identities, body attributes, color claims, placement advice, and hidden content.
+- The slider remains disabled until all 16 flat and anatomical descriptions are complete. A quiet non-speech heartbeat plays every four seconds during this potentially long operation, while concise live progress identifies each completed stage. This lets a JAWS user distinguish active work from a stalled application without continuous spoken interruption. Conservative model tiers, one-at-a-time rendering/inference, per-stage model unloading, and repeated free-memory guards stop the optional feature cleanly before low-memory pressure can threaten Windows or the screenreader.
+- Completed descriptions are cached by semantic stage. Slider movement therefore changes the displayed and spoken description immediately and never waits on the model. When Offline AI Describe is active, its polite live-region event contains only the cached vivid description; redundant stage, slider, and body-control metadata are not appended to the JAWS utterance.
+- Busy operations disable conflicting actions and expose an indeterminate progress indicator.
+- Windows' accessible file dialogs and message boxes are used instead of custom inaccessible dialogs.
+- Camera instructions explicitly describe how to return and provide **Select photo** as a fallback if Camera Roll cannot be detected.
+- The visually emphasized **BLACK WIDOW TATTOO** button has an explicit UI Automation name, help text, `Alt+B` access key, native focus behavior, and an accessible error if Windows cannot open its Facebook destination.
+
+If Ollama or a model is missing, TATAPP uses native accessible message boxes to explain the requirement and obtain consent. The model name, hardware-selected tier, download implications, local-processing boundary, progress, and recovery action are stated in text; no sound is the sole carrier of information.
+
+The automated test harness verifies names, help text, access keys, live-region metadata, slider bounds, stage-cache completeness, conservative hardware tiers, per-stage model unloading, repeated memory checks, oversized-image rejection, loopback-only model requests, prompt grounding, bounded model images, heartbeat validity, and the camera fallback. Manual release testing should additionally cover current JAWS, 200% scaling, keyboard-only operation, Windows High Contrast themes, model installation, and an actual Qwen description run.

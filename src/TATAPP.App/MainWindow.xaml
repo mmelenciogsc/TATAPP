@@ -1,0 +1,291 @@
+<Window x:Class="TATAPP.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
+        Title="TATAPP — Tattoo Art Prepper"
+        Width="1480" Height="900" MinWidth="1100" MinHeight="720"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource {x:Static SystemColors.WindowBrushKey}}"
+        Foreground="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}"
+        AutomationProperties.Name="TATAPP Tattoo Art Prepper window"
+        KeyboardNavigation.TabNavigation="Continue"
+        Activated="MainWindow_Activated"
+        Deactivated="MainWindow_Deactivated"
+        Closed="MainWindow_Closed">
+    <DockPanel>
+        <Border DockPanel.Dock="Top" Padding="24,18"
+                Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}"
+                BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}"
+                BorderThickness="0,0,0,1">
+            <StackPanel>
+                <TextBlock Text="TATAPP" FontSize="30" FontWeight="Bold"
+                           AutomationProperties.HeadingLevel="Level1" />
+                <TextBlock Text="Tattoo Art Prepper" FontSize="18" FontWeight="SemiBold" Margin="0,2,0,0"
+                           AutomationProperties.HeadingLevel="Level2" />
+                <TextBlock Text="Prepare an isolated design, then preview it naturally wrapped around an anatomical body surface."
+                           FontSize="15" Margin="0,3,0,0" />
+            </StackPanel>
+        </Border>
+
+        <StatusBar DockPanel.Dock="Bottom" Padding="12,7"
+                   Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
+            <TextBlock x:Name="StatusText"
+                       Text="Ready. Take or select a photo to begin."
+                       AutomationProperties.Name="Application status"
+                       AutomationProperties.AutomationId="StatusText"
+                       AutomationProperties.LiveSetting="Polite" />
+        </StatusBar>
+
+        <Grid Margin="24">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <WrapPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,16">
+                <Button x:Name="TakePhotoButton" Content="_Take photo" Click="TakePhotoButton_Click"
+                        AutomationProperties.Name="Take photo"
+                        AutomationProperties.AutomationId="TakePhotoButton"
+                        AutomationProperties.HelpText="Opens Windows Camera. Take and save a photograph, then return to TATAPP." />
+                <Button x:Name="SelectPhotoButton" Content="_Select photo" Click="SelectPhotoButton_Click"
+                        AutomationProperties.Name="Select photo"
+                        AutomationProperties.AutomationId="SelectPhotoButton"
+                        AutomationProperties.HelpText="Choose an existing JPEG, PNG, bitmap, TIFF, or GIF image." />
+                <Button x:Name="SaveButton" Content="S_ave current look" Click="SaveButton_Click" IsEnabled="False"
+                        AutomationProperties.Name="Save current look"
+                        AutomationProperties.AutomationId="SaveButton"
+                        AutomationProperties.HelpText="Saves the full-resolution image at the current slider position in the original photo format." />
+                <CheckBox x:Name="OfflineAIDescribeCheckBox" Content="Offline AI _Describe"
+                          VerticalAlignment="Center" Margin="12,0,0,0"
+                          Checked="OfflineAIDescribeCheckBox_Checked"
+                          Unchecked="OfflineAIDescribeCheckBox_Unchecked"
+                          AutomationProperties.Name="Offline AI Describe"
+                          AutomationProperties.AutomationId="OfflineAIDescribeCheckBox"
+                          AutomationProperties.HelpText="When checked, privately preloads vivid descriptions of every flat-design and anatomical-placement stage with a hardware-selected local Qwen vision model. The slider remains unavailable until every description is ready." />
+                <Button x:Name="BlackWidowTattooButton" Content="_BLACK WIDOW TATTOO"
+                        Click="BlackWidowTattooButton_Click" FontWeight="Bold" MinWidth="205"
+                        Background="{DynamicResource {x:Static SystemColors.HighlightBrushKey}}"
+                        Foreground="{DynamicResource {x:Static SystemColors.HighlightTextBrushKey}}"
+                        AutomationProperties.Name="BLACK WIDOW TATTOO"
+                        AutomationProperties.AutomationId="BlackWidowTattooButton"
+                        AutomationProperties.HelpText="Opens the Black Widow Tattoo Facebook page in the default web browser." />
+                <TextBlock x:Name="SourceNameText" Text="No photo loaded" VerticalAlignment="Center"
+                           Margin="10,0,0,0" FontWeight="SemiBold"
+                           AutomationProperties.Name="Selected photo" />
+            </WrapPanel>
+
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="3*" MinWidth="480" />
+                    <ColumnDefinition Width="14" />
+                    <ColumnDefinition Width="2*" MinWidth="390" />
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0" BorderThickness="1" CornerRadius="4" Padding="8"
+                        BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}"
+                        Background="{DynamicResource {x:Static SystemColors.ControlLightLightBrushKey}}">
+                    <Grid>
+                        <Image x:Name="PreviewImage" Stretch="Uniform" Focusable="True"
+                               AutomationProperties.Name="Photo preview. No photo loaded."
+                               AutomationProperties.AutomationId="PreviewImage"
+                               AutomationProperties.HelpText="A visual preview of the isolated design at the current development stage." />
+                        <TextBlock x:Name="EmptyStateText"
+                                   Text="Take or select a clear, isolated design to start."
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   FontSize="22" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}"
+                                   AutomationProperties.Name="No design loaded. Take or select a clear, isolated design to start." />
+                    </Grid>
+                </Border>
+
+                <GroupBox Grid.Column="2" Header="Anatomical Visualization" Padding="10"
+                          AutomationProperties.Name="Anatomical Visualization">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*" MinHeight="300" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <Border Grid.Row="0" Background="#17131C" BorderBrush="#79558B" BorderThickness="1"
+                                CornerRadius="3" Margin="0,0,0,8">
+                            <Viewport3D x:Name="AnatomyViewport" Focusable="True" ClipToBounds="True"
+                                        AutomationProperties.Name="Interactive male anatomical model. Left upper arm outer surface selected."
+                                        AutomationProperties.AutomationId="AnatomyViewport"
+                                        AutomationProperties.HelpText="Sighted users can tap a body surface or drag horizontally to rotate. Screenreader users can use the body region list and rotate buttons below." />
+                        </Border>
+
+                        <WrapPanel Grid.Row="1" Margin="0,0,0,7">
+                            <TextBlock Text="Body:" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,8,0" />
+                            <RadioButton x:Name="MaleBodyRadioButton" Content="_Male" GroupName="BodySex"
+                                         IsChecked="True" Margin="0,0,14,0" Checked="BodySexRadioButton_Checked"
+                                         AutomationProperties.Name="Male anatomical model"
+                                         AutomationProperties.AutomationId="MaleBodyRadioButton"
+                                         AutomationProperties.HelpText="Displays the male anatomical model." />
+                            <RadioButton x:Name="FemaleBodyRadioButton" Content="_Female" GroupName="BodySex"
+                                         Checked="BodySexRadioButton_Checked"
+                                         AutomationProperties.Name="Female anatomical model"
+                                         AutomationProperties.AutomationId="FemaleBodyRadioButton"
+                                         AutomationProperties.HelpText="Displays the female anatomical model." />
+                        </WrapPanel>
+
+                        <StackPanel Grid.Row="2" Margin="0,0,0,7">
+                            <Label Content="Body _region" Target="{Binding ElementName=BodyRegionComboBox}"
+                                   FontWeight="SemiBold" Padding="0,0,0,3" />
+                            <ComboBox x:Name="BodyRegionComboBox" MinHeight="36"
+                                      DisplayMemberPath="DisplayName"
+                                      SelectionChanged="BodyRegionComboBox_SelectionChanged"
+                                      AutomationProperties.Name="Body region"
+                                      AutomationProperties.AutomationId="BodyRegionComboBox"
+                                      AutomationProperties.HelpText="Selects the tattoo placement surface and synchronizes the highlighted area on the 3D body model." />
+                        </StackPanel>
+
+                        <Grid Grid.Row="3" Margin="0,0,0,7">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Button x:Name="RotateLeftButton" Grid.Column="0" Content="Rotate _left" Click="RotateLeftButton_Click"
+                                    AutomationProperties.Name="Rotate anatomical model left"
+                                    AutomationProperties.AutomationId="RotateLeftButton"
+                                    AutomationProperties.HelpText="Rotates the anatomical model fifteen degrees to the left." />
+                            <Button x:Name="RotateRightButton" Grid.Column="1" Content="Rotate _right" Click="RotateRightButton_Click"
+                                    Margin="4,0,0,0"
+                                    AutomationProperties.Name="Rotate anatomical model right"
+                                    AutomationProperties.AutomationId="RotateRightButton"
+                                    AutomationProperties.HelpText="Rotates the anatomical model fifteen degrees to the right." />
+                            <Button x:Name="ZoomInButton" Grid.Column="2" Content="Zoom _in" Click="ZoomInButton_Click"
+                                    Margin="4,0,0,0" Padding="8,9"
+                                    AutomationProperties.Name="Zoom anatomical model in"
+                                    AutomationProperties.AutomationId="ZoomInButton"
+                                    AutomationProperties.HelpText="Magnifies the anatomical model to inspect the selected tattoo placement." />
+                            <Button x:Name="ZoomOutButton" Grid.Column="3" Content="Zoom _out" Click="ZoomOutButton_Click"
+                                    Margin="4,0,0,0" Padding="8,9"
+                                    AutomationProperties.Name="Zoom anatomical model out"
+                                    AutomationProperties.AutomationId="ZoomOutButton"
+                                    AutomationProperties.HelpText="Reduces the anatomical model toward the full-body view." />
+                        </Grid>
+
+                        <Grid Grid.Row="4" Margin="0,0,0,7">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Row="0" Grid.ColumnSpan="3" Content="Body si_ze"
+                                   Target="{Binding ElementName=BodySizeSlider}" FontWeight="SemiBold" Padding="0,0,0,2" />
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="140 cm" VerticalAlignment="Center" />
+                            <Slider x:Name="BodySizeSlider" Grid.Row="1" Grid.Column="1" Margin="8,0"
+                                    Minimum="140" Maximum="200" Value="163" TickFrequency="1"
+                                    SmallChange="1" LargeChange="5" ValueChanged="BodySizeSlider_ValueChanged"
+                                    AutomationProperties.Name="Body size"
+                                    AutomationProperties.AutomationId="BodySizeSlider"
+                                    AutomationProperties.HelpText="Sets model height in centimeters. The default is 163 centimeters, representing an average Filipino adult." />
+                            <TextBlock x:Name="BodySizeValueText" Grid.Row="1" Grid.Column="2"
+                                       Text="163 cm — average Filipino adult" MinWidth="185" TextAlignment="Right"
+                                       VerticalAlignment="Center" AutomationProperties.Name="Body size value" />
+                        </Grid>
+
+                        <Grid Grid.Row="5">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Row="0" Grid.ColumnSpan="3" Content="Skin tone / _complexion"
+                                   Target="{Binding ElementName=SkinToneSlider}" FontWeight="SemiBold" Padding="0,0,0,2" />
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Lighter" VerticalAlignment="Center" />
+                            <Slider x:Name="SkinToneSlider" Grid.Row="1" Grid.Column="1" Margin="8,0"
+                                    Minimum="0" Maximum="100" Value="55" TickFrequency="5"
+                                    SmallChange="1" LargeChange="5" ValueChanged="SkinToneSlider_ValueChanged"
+                                    AutomationProperties.Name="Skin tone and complexion"
+                                    AutomationProperties.AutomationId="SkinToneSlider"
+                                    AutomationProperties.HelpText="Adjusts the model complexion. The default is light brown to medium tan, Filipino." />
+                            <TextBlock Grid.Row="1" Grid.Column="2" Text="Deeper" VerticalAlignment="Center" />
+                            <TextBlock x:Name="SkinToneValueText" Grid.Row="2" Grid.ColumnSpan="3"
+                                       Text="Light brown to medium tan, Filipino" Margin="0,3,0,0"
+                                       TextAlignment="Center" FontWeight="SemiBold"
+                                       AutomationProperties.Name="Skin tone value" />
+                            <TextBlock x:Name="AnatomySelectionText" Grid.Row="2" Grid.ColumnSpan="3"
+                                       Height="1" Opacity="0" IsHitTestVisible="False"
+                                       AutomationProperties.Name="Anatomical selection status"
+                                       AutomationProperties.AutomationId="AnatomySelectionText"
+                                       AutomationProperties.LiveSetting="Polite" />
+                        </Grid>
+                    </Grid>
+                </GroupBox>
+            </Grid>
+
+            <Grid Grid.Row="2" Margin="0,18,0,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Margin="0,0,0,8">
+                    <TextBlock x:Name="StageHeadingText" Text="Original image" FontSize="20" FontWeight="Bold"
+                               AutomationProperties.HeadingLevel="Level2" />
+                    <TextBlock x:Name="StageDescriptionText" Text="Original color, texture, and detail."
+                               FontSize="14" Margin="0,2,0,0" />
+                </StackPanel>
+
+                <Slider x:Name="DevelopmentSlider" Grid.Row="1" Grid.Column="0"
+                        Minimum="0" Maximum="100" Value="0"
+                        SmallChange="1" LargeChange="5" TickFrequency="5"
+                        IsSnapToTickEnabled="False" IsMoveToPointEnabled="True"
+                        IsEnabled="False" ValueChanged="DevelopmentSlider_ValueChanged"
+                        AutomationProperties.Name="Visual development stage"
+                        AutomationProperties.AutomationId="DevelopmentSlider"
+                        AutomationProperties.HelpText="Use Left and Right Arrow for fine changes or Page Up and Page Down for larger changes. Zero is the original image. After the finest flat outline, anatomical previews progress in reverse from fine outline to full color at one hundred." />
+                <TextBlock x:Name="SliderValueText" Grid.Row="1" Grid.Column="1" Text="0 percent"
+                           MinWidth="92" Margin="16,0,0,0" VerticalAlignment="Center"
+                           TextAlignment="Right" FontWeight="SemiBold"
+                           AutomationProperties.Name="Slider value" />
+
+                <Border x:Name="OfflineAiDescriptionPanel" Grid.Row="2" Grid.ColumnSpan="2"
+                        Visibility="Collapsed" Margin="0,12,0,0" Padding="12"
+                        BorderThickness="1" CornerRadius="4"
+                        BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}"
+                        Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}"
+                        AutomationProperties.Name="Offline AI description panel">
+                    <StackPanel>
+                        <TextBlock Text="Offline AI description" FontWeight="Bold" FontSize="16"
+                                   AutomationProperties.HeadingLevel="Level3" />
+                        <TextBlock x:Name="OfflineAiProfileText" Margin="0,2,0,5" TextWrapping="Wrap"
+                                   AutomationProperties.Name="Offline AI model status" />
+                        <TextBlock x:Name="OfflineAiDescriptionText" TextWrapping="Wrap" Focusable="True"
+                                   AutomationProperties.Name="Offline AI visual description"
+                                   AutomationProperties.AutomationId="OfflineAiDescriptionText"
+                                   AutomationProperties.HelpText="A locally generated description of the loaded photo at the current visual development stage."
+                                   AutomationProperties.LiveSetting="Polite" />
+                    </StackPanel>
+                </Border>
+
+                <ProgressBar x:Name="BusyProgress" Grid.Row="3" Grid.ColumnSpan="2"
+                             Height="4" Margin="0,10,0,0" IsIndeterminate="True" Visibility="Collapsed"
+                             AutomationProperties.Name="Processing image" />
+            </Grid>
+        </Grid>
+    </DockPanel>
+</Window>
