@@ -18,7 +18,7 @@ namespace TATAPP.App;
 
 public sealed partial class MainWindow : Window, IDisposable
 {
-    private const string BlackWidowTattooFacebookUrl = "https://www.facebook.com/grayscaleconsultants";
+    private const string BlackWidowTattooFacebookUrl = "https://www.facebook.com/profile.php?id=61583807836781&sk=directory_contact_info";
     private readonly WindowsCameraCaptureCoordinator camera = new();
     private readonly Dictionary<TattooStageKind, string> offlineAiDescriptions = [];
     private readonly AnatomyViewportController anatomy;

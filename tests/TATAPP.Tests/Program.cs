@@ -244,7 +244,7 @@ internal static class Program
                "BLACK WIDOW TATTOO");
 
         var source = File.ReadAllText(Path.Combine(RepositoryRoot(), "src", "TATAPP.App", "MainWindow.xaml.cs"));
-        Assert(source.Contains("https://www.facebook.com/grayscaleconsultants", StringComparison.Ordinal));
+        Assert(source.Contains("https://www.facebook.com/profile.php?id=61583807836781&sk=directory_contact_info", StringComparison.Ordinal));
         Assert(source.Contains("UseShellExecute = true", StringComparison.Ordinal));
     }
 

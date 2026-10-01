@@ -46,7 +46,7 @@ The UI is designed for keyboard and screenreader use:
 
 Windows Camera saves into Camera Roll. When the user returns to TATAPP, a newly created supported image is loaded automatically. If Windows or OneDrive uses a different folder, **Select photo** is the accessible fallback.
 
-The prominently displayed **BLACK WIDOW TATTOO** button (`Alt+B`) opens the configured Facebook page in the user's default browser. Its current destination is `https://www.facebook.com/grayscaleconsultants` and is isolated in one application constant so the official Black Widow Tattoo URL can replace it later.
+The prominently displayed **BLACK WIDOW TATTOO** button (`Alt+B`) opens the official Black Widow Tattoo Facebook page at `https://www.facebook.com/profile.php?id=61583807836781&sk=directory_contact_info` in the user's default browser. The destination remains isolated in one application constant for maintainability.
 
 ## Build and run
 
