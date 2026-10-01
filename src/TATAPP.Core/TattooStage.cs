@@ -100,6 +100,7 @@ public static class TattooStageCatalog
 
     public static TattooStage FromSlider(double value)
     {
+        if (!double.IsFinite(value)) throw new ArgumentOutOfRangeException(nameof(value));
         value = Math.Clamp(value, 0, 100);
         if (value < 0.5) return Original;
         if (value < 11) return ColorFade;

@@ -225,7 +225,7 @@ internal sealed class AnatomyViewportController
     {
         tattooTexture = source is null
             ? null
-            : PhotoCodec.ToBitmapSource(TattooInkTexture.Create(source));
+            : PhotoCodec.ToBitmapSource(TattooInkTexture.CreatePlacementTexture(source));
         showTattoo = visible && tattooTexture is not null;
         RebuildPlacementSurface();
     }
@@ -243,46 +243,16 @@ internal sealed class AnatomyViewportController
         skinModels.Clear();
         placementModel = null;
 
-        var shoulderX = sex == AnatomicalSex.Male ? 1.03 : 0.91;
-        var torsoRadiusX = sex == AnatomicalSex.Male ? 0.92 : 0.79;
-        var torsoRadiusY = 1.34;
-        var torsoRadiusZ = sex == AnatomicalSex.Male ? 0.48 : 0.52;
-        var hipRadiusX = sex == AnatomicalSex.Male ? 0.70 : 0.82;
-
-        AddSkin(CreateEllipsoid(new Point3D(0, 3.55, 0), new Vector3D(0.43, 0.55, 0.40)), null);
-        AddSkin(CreateCylinder(new Point3D(0, 2.93, 0), 0.25, 0.23, 0.42), null);
-        torsoModel = AddSkin(CreateEllipsoid(new Point3D(0, 1.55, 0),
-            new Vector3D(torsoRadiusX, torsoRadiusY, torsoRadiusZ)), BodyRegionKind.FullChestAndAbdomen);
-        AddSkin(CreateEllipsoid(new Point3D(0, 0.05, 0), new Vector3D(hipRadiusX, 0.62, 0.47)), null);
-
-        AddSkin(CreateEllipsoid(new Point3D(shoulderX, 2.30, 0), new Vector3D(0.34, 0.36, 0.34)),
-            BodyRegionKind.LeftShoulder);
-        AddSkin(CreateCylinder(new Point3D(shoulderX, 1.52, 0), 0.28, 0.27, 1.35),
-            BodyRegionKind.LeftOuterUpperArm);
-        AddSkin(CreateCylinder(new Point3D(shoulderX + 0.02, 0.20, 0), 0.22, 0.21, 1.22),
-            BodyRegionKind.LeftOuterForearm);
-        AddSkin(CreateCylinder(new Point3D(shoulderX + 0.02, -0.52, 0), 0.18, 0.18, 0.20),
-            BodyRegionKind.LeftWrist);
-        AddSkin(CreateEllipsoid(new Point3D(shoulderX + 0.02, -0.78, 0.03), new Vector3D(0.22, 0.35, 0.16)),
-            BodyRegionKind.LeftWrist);
-
-        AddSkin(CreateEllipsoid(new Point3D(-shoulderX, 2.30, 0), new Vector3D(0.34, 0.36, 0.34)),
-            BodyRegionKind.RightShoulder);
-        AddSkin(CreateCylinder(new Point3D(-shoulderX, 1.52, 0), 0.28, 0.27, 1.35),
-            BodyRegionKind.RightOuterUpperArm);
-        AddSkin(CreateCylinder(new Point3D(-shoulderX - 0.02, 0.20, 0), 0.22, 0.21, 1.22),
-            BodyRegionKind.RightOuterForearm);
-        AddSkin(CreateCylinder(new Point3D(-shoulderX - 0.02, -0.52, 0), 0.18, 0.18, 0.20),
-            BodyRegionKind.RightWrist);
-        AddSkin(CreateEllipsoid(new Point3D(-shoulderX - 0.02, -0.78, 0.03), new Vector3D(0.22, 0.35, 0.16)),
-            BodyRegionKind.RightWrist);
-
-        AddSkin(CreateCylinder(new Point3D(0.42, -1.03, 0), 0.38, 0.36, 1.70), BodyRegionKind.LeftThigh);
-        AddSkin(CreateCylinder(new Point3D(0.42, -2.57, 0), 0.27, 0.25, 1.40), BodyRegionKind.LeftCalf);
-        AddSkin(CreateEllipsoid(new Point3D(0.42, -3.42, 0.15), new Vector3D(0.29, 0.20, 0.48)), null);
-        AddSkin(CreateCylinder(new Point3D(-0.42, -1.03, 0), 0.38, 0.36, 1.70), BodyRegionKind.RightThigh);
-        AddSkin(CreateCylinder(new Point3D(-0.42, -2.57, 0), 0.27, 0.25, 1.40), BodyRegionKind.RightCalf);
-        AddSkin(CreateEllipsoid(new Point3D(-0.42, -3.42, 0.15), new Vector3D(0.29, 0.20, 0.48)), null);
+        foreach (var segment in AnatomicalGeometryCatalog.ForSex(sex).BodySegments)
+        {
+            BodyRegionKind? hitRegion = segment.Kind == AnatomicalBodySegmentKind.Torso
+                ? BodyRegionKind.FullChestAndAbdomen
+                : segment.SelectableRegions.IsDefaultOrEmpty
+                    ? null
+                    : segment.SelectableRegions[0];
+            var model = AddSkin(WpfAnatomicalMeshAdapter.Create(segment.Mesh), hitRegion);
+            if (segment.Kind == AnatomicalBodySegmentKind.Torso) torsoModel = model;
+        }
 
         var transform = new Transform3DGroup();
         transform.Children.Add(bodyScale);
@@ -336,7 +306,9 @@ internal sealed class AnatomyViewportController
         {
             brush = new ImageBrush(tattooTexture)
             {
-                Stretch = Stretch.Uniform,
+                // Core has already performed the scale-1 uniform-contain fit in
+                // a transparent square, so both renderers consume one UV policy.
+                Stretch = Stretch.Fill,
                 TileMode = TileMode.None,
                 ViewportUnits = BrushMappingMode.RelativeToBoundingBox,
                 Opacity = 0.94,
@@ -351,43 +323,7 @@ internal sealed class AnatomyViewportController
     }
 
     private MeshGeometry3D CreatePlacementMesh(BodyRegionKind region)
-    {
-        var leftX = sex == AnatomicalSex.Male ? 1.03 : 0.91;
-        var torsoX = sex == AnatomicalSex.Male ? 0.92 : 0.79;
-        var torsoZ = sex == AnatomicalSex.Male ? 0.48 : 0.52;
-        return region switch
-        {
-            BodyRegionKind.LeftOuterUpperArm => CreateCylinderPatch(new Point3D(leftX, 1.52, 0), 0.288, 0.278, 1.22, -1.15, 1.15),
-            BodyRegionKind.LeftInnerUpperArm => CreateCylinderPatch(new Point3D(leftX, 1.52, 0), 0.288, 0.278, 1.08, Math.PI - 1.0, Math.PI + 1.0),
-            BodyRegionKind.RightOuterUpperArm => CreateCylinderPatch(new Point3D(-leftX, 1.52, 0), 0.288, 0.278, 1.22, Math.PI - 1.15, Math.PI + 1.15),
-            BodyRegionKind.RightInnerUpperArm => CreateCylinderPatch(new Point3D(-leftX, 1.52, 0), 0.288, 0.278, 1.08, -1.0, 1.0),
-            BodyRegionKind.LeftOuterForearm => CreateCylinderPatch(new Point3D(leftX + 0.02, 0.20, 0), 0.228, 0.218, 1.04, -1.15, 1.15),
-            BodyRegionKind.LeftInnerForearm => CreateCylinderPatch(new Point3D(leftX + 0.02, 0.20, 0), 0.228, 0.218, 0.92, Math.PI - 1.0, Math.PI + 1.0),
-            BodyRegionKind.RightOuterForearm => CreateCylinderPatch(new Point3D(-leftX - 0.02, 0.20, 0), 0.228, 0.218, 1.04, Math.PI - 1.15, Math.PI + 1.15),
-            BodyRegionKind.RightInnerForearm => CreateCylinderPatch(new Point3D(-leftX - 0.02, 0.20, 0), 0.228, 0.218, 0.92, -1.0, 1.0),
-            BodyRegionKind.LeftWrist => CreateCylinderPatch(new Point3D(leftX + 0.02, -0.52, 0), 0.188, 0.188, 0.18, -Math.PI, Math.PI),
-            BodyRegionKind.RightWrist => CreateCylinderPatch(new Point3D(-leftX - 0.02, -0.52, 0), 0.188, 0.188, 0.18, -Math.PI, Math.PI),
-            BodyRegionKind.UpperLeftChest => CreateTorsoPatch(0.05, torsoX * 0.76, 1.45, 2.30, true, torsoX, torsoZ),
-            BodyRegionKind.UpperRightChest => CreateTorsoPatch(-torsoX * 0.76, -0.05, 1.45, 2.30, true, torsoX, torsoZ),
-            BodyRegionKind.FullUpperChest => CreateTorsoPatch(-torsoX * 0.70, torsoX * 0.70, 1.30, 2.32, true, torsoX, torsoZ),
-            BodyRegionKind.FullChestAndAbdomen => CreateTorsoPatch(-torsoX * 0.60, torsoX * 0.60, 0.35, 2.22, true, torsoX, torsoZ),
-            BodyRegionKind.FullUpperBack => CreateTorsoPatch(-torsoX * 0.70, torsoX * 0.70, 1.25, 2.35, false, torsoX, torsoZ),
-            BodyRegionKind.FullBack => CreateTorsoPatch(-torsoX * 0.62, torsoX * 0.62, 0.28, 2.35, false, torsoX, torsoZ),
-            BodyRegionKind.LeftShoulder => CreateEllipsoid(new Point3D(leftX, 2.30, 0), new Vector3D(0.348, 0.368, 0.348)),
-            BodyRegionKind.RightShoulder => CreateEllipsoid(new Point3D(-leftX, 2.30, 0), new Vector3D(0.348, 0.368, 0.348)),
-            BodyRegionKind.LeftThigh => CreateCylinderPatch(new Point3D(0.42, -1.03, 0), 0.388, 0.368, 1.35, -0.25, Math.PI + 0.25),
-            BodyRegionKind.RightThigh => CreateCylinderPatch(new Point3D(-0.42, -1.03, 0), 0.388, 0.368, 1.35, -0.25, Math.PI + 0.25),
-            BodyRegionKind.LeftCalf => CreateCylinderPatch(new Point3D(0.42, -2.57, 0), 0.278, 0.258, 1.12, Math.PI * 0.35, Math.PI * 1.65),
-            BodyRegionKind.RightCalf => CreateCylinderPatch(new Point3D(-0.42, -2.57, 0), 0.278, 0.258, 1.12, Math.PI * 0.35, Math.PI * 1.65),
-            _ => throw new ArgumentOutOfRangeException(nameof(region)),
-        };
-    }
-
-    private static MeshGeometry3D CreateTorsoPatch(double minX, double maxX, double minY, double maxY,
-        bool front, double torsoRadiusX, double torsoRadiusZ) =>
-        CreateEllipsoidSurfacePatch(new Point3D(0, 1.55, 0),
-            new Vector3D(torsoRadiusX * 1.012, 1.34 * 1.012, torsoRadiusZ * 1.025),
-            minX, maxX, minY, maxY, front);
+        => WpfAnatomicalMeshAdapter.Create(AnatomicalGeometryCatalog.ForSex(sex).GetPlacement(region).Mesh);
 
     private void Viewport_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
@@ -463,106 +399,4 @@ internal sealed class AnatomyViewportController
         return value > 180 ? value - 360 : value < -180 ? value + 360 : value;
     }
 
-    private static MeshGeometry3D CreateEllipsoid(Point3D center, Vector3D radius, int slices = 28, int stacks = 18)
-    {
-        var mesh = new MeshGeometry3D();
-        for (var stack = 0; stack <= stacks; stack++)
-        {
-            var latitude = Math.PI * stack / stacks;
-            var ring = Math.Sin(latitude);
-            var normalizedY = Math.Cos(latitude);
-            for (var slice = 0; slice <= slices; slice++)
-            {
-                var longitude = 2 * Math.PI * slice / slices;
-                var normalizedX = ring * Math.Cos(longitude);
-                var normalizedZ = ring * Math.Sin(longitude);
-                mesh.Positions.Add(new Point3D(center.X + radius.X * normalizedX,
-                    center.Y + radius.Y * normalizedY, center.Z + radius.Z * normalizedZ));
-                var normal = new Vector3D(normalizedX / radius.X, normalizedY / radius.Y,
-                    normalizedZ / radius.Z);
-                normal.Normalize();
-                mesh.Normals.Add(normal);
-                mesh.TextureCoordinates.Add(new Point(slice / (double)slices, stack / (double)stacks));
-            }
-        }
-        AddGridTriangles(mesh, slices, stacks);
-        mesh.Freeze();
-        return mesh;
-    }
-
-    private static MeshGeometry3D CreateCylinder(Point3D center, double radiusX, double radiusZ, double height,
-        int segments = 28) => CreateCylinderPatch(center, radiusX, radiusZ, height, -Math.PI, Math.PI, segments);
-
-    private static MeshGeometry3D CreateCylinderPatch(Point3D center, double radiusX, double radiusZ,
-        double height, double startAngle, double endAngle, int segments = 28)
-    {
-        var mesh = new MeshGeometry3D();
-        for (var row = 0; row <= 1; row++)
-        {
-            var y = center.Y + (row == 0 ? height / 2 : -height / 2);
-            for (var segment = 0; segment <= segments; segment++)
-            {
-                var amount = segment / (double)segments;
-                var angle = startAngle + (endAngle - startAngle) * amount;
-                var normal = new Vector3D(Math.Cos(angle) / radiusX, 0, Math.Sin(angle) / radiusZ);
-                normal.Normalize();
-                mesh.Positions.Add(new Point3D(center.X + radiusX * Math.Cos(angle), y,
-                    center.Z + radiusZ * Math.Sin(angle)));
-                mesh.Normals.Add(normal);
-                mesh.TextureCoordinates.Add(new Point(amount, row));
-            }
-        }
-        AddGridTriangles(mesh, segments, 1);
-        mesh.Freeze();
-        return mesh;
-    }
-
-    private static MeshGeometry3D CreateEllipsoidSurfacePatch(Point3D center, Vector3D radius,
-        double minX, double maxX, double minY, double maxY, bool front, int columns = 20, int rows = 20)
-    {
-        var mesh = new MeshGeometry3D();
-        var direction = front ? 1d : -1d;
-        for (var row = 0; row <= rows; row++)
-        {
-            var v = row / (double)rows;
-            var y = maxY + (minY - maxY) * v;
-            for (var column = 0; column <= columns; column++)
-            {
-                var u = column / (double)columns;
-                var x = minX + (maxX - minX) * u;
-                var normalizedX = (x - center.X) / radius.X;
-                var normalizedY = (y - center.Y) / radius.Y;
-                var zFactor = Math.Sqrt(Math.Max(0.025, 1 - normalizedX * normalizedX - normalizedY * normalizedY));
-                var z = center.Z + direction * radius.Z * zFactor;
-                var normal = new Vector3D(normalizedX / radius.X, normalizedY / radius.Y,
-                    direction * zFactor / radius.Z);
-                normal.Normalize();
-                mesh.Positions.Add(new Point3D(x, y, z));
-                mesh.Normals.Add(normal);
-                mesh.TextureCoordinates.Add(new Point(u, v));
-            }
-        }
-        AddGridTriangles(mesh, columns, rows);
-        mesh.Freeze();
-        return mesh;
-    }
-
-    private static void AddGridTriangles(MeshGeometry3D mesh, int columns, int rows)
-    {
-        var stride = columns + 1;
-        for (var row = 0; row < rows; row++)
-        for (var column = 0; column < columns; column++)
-        {
-            var topLeft = row * stride + column;
-            var topRight = topLeft + 1;
-            var bottomLeft = topLeft + stride;
-            var bottomRight = bottomLeft + 1;
-            mesh.TriangleIndices.Add(topLeft);
-            mesh.TriangleIndices.Add(bottomLeft);
-            mesh.TriangleIndices.Add(topRight);
-            mesh.TriangleIndices.Add(topRight);
-            mesh.TriangleIndices.Add(bottomLeft);
-            mesh.TriangleIndices.Add(bottomRight);
-        }
-    }
 }

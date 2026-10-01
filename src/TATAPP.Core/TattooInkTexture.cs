@@ -36,6 +36,32 @@ public static class TattooInkTexture
         return new ImageFrame(source.Width, source.Height, pixels, source.DpiX, source.DpiY);
     }
 
+    /// <summary>
+    /// Creates the platform-neutral texture used by anatomical surfaces. The
+    /// source is fitted uniformly into a transparent square UV plane without
+    /// scaling its pixels. Region-specific suggested scale remains metadata and
+    /// is deliberately not applied here, preserving the established Windows
+    /// placement behavior.
+    /// </summary>
+    public static ImageFrame CreatePlacementTexture(ImageFrame source, double opacity = 0.82,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        var ink = Create(source, opacity, cancellationToken);
+        var layout = TattooTextureLayout.UniformContain(source.Width, source.Height);
+        if (layout.CanvasSize == source.Width && layout.CanvasSize == source.Height) return ink;
+
+        cancellationToken.ThrowIfCancellationRequested();
+        var pixels = new byte[checked(layout.CanvasSize * layout.CanvasSize * 4)];
+        for (var row = 0; row < source.Height; row++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Buffer.BlockCopy(ink.Pixels, checked(row * source.Stride), pixels,
+                checked(((layout.Top + row) * layout.CanvasSize + layout.Left) * 4), source.Stride);
+        }
+        return new ImageFrame(layout.CanvasSize, layout.CanvasSize, pixels, source.DpiX, source.DpiY);
+    }
+
     private static (byte Red, byte Green, byte Blue) EstimateSheetBackground(ImageFrame source)
     {
         var red = new List<byte>();
@@ -68,5 +94,41 @@ public static class TattooInkTexture
             green.Add(source.Pixels[offset + 1]);
             red.Add(source.Pixels[offset + 2]);
         }
+    }
+}
+
+/// <summary>
+/// Integer and normalized coordinates for a scale-1 uniform-contain mapping in
+/// a square UV plane. Keeping this calculation in Core prevents platform image
+/// brushes and canvases from adopting different aspect-ratio rules.
+/// </summary>
+public sealed record TattooTextureLayout
+{
+    private TattooTextureLayout(int canvasSize, int left, int top, int width, int height)
+    {
+        CanvasSize = canvasSize;
+        Left = left;
+        Top = top;
+        Width = width;
+        Height = height;
+    }
+
+    public int CanvasSize { get; }
+    public int Left { get; }
+    public int Top { get; }
+    public int Width { get; }
+    public int Height { get; }
+    public double NormalizedLeft => Left / (double)CanvasSize;
+    public double NormalizedTop => Top / (double)CanvasSize;
+    public double NormalizedWidth => Width / (double)CanvasSize;
+    public double NormalizedHeight => Height / (double)CanvasSize;
+
+    public static TattooTextureLayout UniformContain(int sourceWidth, int sourceHeight)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sourceWidth);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sourceHeight);
+        var size = Math.Max(sourceWidth, sourceHeight);
+        return new(size, (size - sourceWidth) / 2, (size - sourceHeight) / 2,
+            sourceWidth, sourceHeight);
     }
 }

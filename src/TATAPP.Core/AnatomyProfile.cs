@@ -101,6 +101,15 @@ public static class AnatomicalDefaults
     public const double HeightCentimeters = 163;
     public const double SkinToneValue = 55;
 
+    public static double PreferredRotation(BodyRegionKind region) =>
+        BodyRegionCatalog.Get(region).PreferredView switch
+        {
+            AnatomicalView.Back => 180,
+            AnatomicalView.Left => -62,
+            AnatomicalView.Right => 62,
+            _ => 0,
+        };
+
     public static string DescribeHeight(double value) =>
         Math.Abs(value - HeightCentimeters) < 0.5
             ? $"{HeightCentimeters:0} centimeters, average Filipino adult"

@@ -5,6 +5,7 @@ using System.Text;
 using System.Windows.Media.Imaging;
 using System.Xml.Linq;
 using TATAPP.App;
+using TATAPP.App.Anatomy;
 using TATAPP.App.Imaging;
 using TATAPP.App.OfflineAI;
 using TATAPP.Core;
@@ -37,6 +38,7 @@ internal static class Program
             ("Anatomical defaults match the Filipino adult brief", AnatomicalDefaultsMatchBrief),
             ("Body region catalog is complete and unambiguous", BodyRegionCatalogIsComplete),
             ("Tattoo texture removes the design sheet background", TattooTextureRemovesBackground),
+            ("WPF anatomy adapter preserves shared mesh geometry", WpfAnatomyAdapterPreservesSharedGeometry),
             ("Anatomical visual and dropdown selection synchronize", AnatomicalSelectionSynchronizes),
             ("Anatomical placement can be saved", AnatomicalPlacementCanBeSaved),
             ("Every anatomical region has contextual and detail camera framing", CameraFramingCoversEveryRegion),
@@ -329,6 +331,43 @@ internal static class Program
         Assert(source.Contains("BodyRegionComboBox_SelectionChanged", StringComparison.Ordinal));
     }
 
+    private static void WpfAnatomyAdapterPreservesSharedGeometry()
+    {
+        var controllerSource = File.ReadAllText(Path.Combine(RepositoryRoot(), "src", "TATAPP.App",
+            "Anatomy", "AnatomyViewportController.cs"));
+        Assert(controllerSource.Contains("AnatomicalGeometryCatalog.ForSex(sex).BodySegments",
+            StringComparison.Ordinal));
+        Assert(controllerSource.Contains("GetPlacement(region).Mesh", StringComparison.Ordinal));
+        Assert(controllerSource.Contains("TattooInkTexture.CreatePlacementTexture(source)",
+            StringComparison.Ordinal));
+        Assert(!controllerSource.Contains("CreateCylinderPatch", StringComparison.Ordinal));
+
+        foreach (var sex in Enum.GetValues<AnatomicalSex>())
+        {
+            var geometry = AnatomicalGeometryCatalog.ForSex(sex);
+            foreach (var source in geometry.BodySegments.Select(segment => segment.Mesh)
+                         .Concat(geometry.PlacementSurfaces.Select(surface => surface.Mesh)))
+            {
+                var adapted = WpfAnatomicalMeshAdapter.Create(source);
+                Assert(adapted.IsFrozen);
+                Assert(adapted.Positions.Count == source.Vertices.Length);
+                Assert(adapted.Normals.Count == source.Vertices.Length);
+                Assert(adapted.TextureCoordinates.Count == source.Vertices.Length);
+                Assert(adapted.TriangleIndices.SequenceEqual(source.TriangleIndices));
+                for (var index = 0; index < source.Vertices.Length; index++)
+                {
+                    var vertex = source.Vertices[index];
+                    Assert(adapted.Positions[index] == new System.Windows.Media.Media3D.Point3D(
+                        vertex.Position.X, vertex.Position.Y, vertex.Position.Z));
+                    Assert(adapted.Normals[index] == new System.Windows.Media.Media3D.Vector3D(
+                        vertex.Normal.X, vertex.Normal.Y, vertex.Normal.Z));
+                    Assert(adapted.TextureCoordinates[index] == new System.Windows.Point(
+                        vertex.SurfacePoint.U, vertex.SurfacePoint.V));
+                }
+            }
+        }
+    }
+
     private static void AnatomicalPlacementCanBeSaved()
     {
         var source = File.ReadAllText(Path.Combine(RepositoryRoot(), "src", "TATAPP.App", "MainWindow.xaml.cs"));
@@ -521,14 +560,14 @@ internal static class Program
     {
         var pixels = new byte[checked(width * height * 4)];
         for (var y = 0; y < height; y++)
-        for (var x = 0; x < width; x++)
-        {
-            var offset = (y * width + x) * 4;
-            pixels[offset] = (byte)((x * 17 + y * 3) % 256);
-            pixels[offset + 1] = (byte)((x * 5 + y * 19) % 256);
-            pixels[offset + 2] = (byte)((x * 13 + y * 11) % 256);
-            pixels[offset + 3] = (byte)(128 + (x + y) % 128);
-        }
+            for (var x = 0; x < width; x++)
+            {
+                var offset = (y * width + x) * 4;
+                pixels[offset] = (byte)((x * 17 + y * 3) % 256);
+                pixels[offset + 1] = (byte)((x * 5 + y * 19) % 256);
+                pixels[offset + 2] = (byte)((x * 13 + y * 11) % 256);
+                pixels[offset + 3] = (byte)(128 + (x + y) % 128);
+            }
         return new ImageFrame(width, height, pixels, 300, 300);
     }
 
@@ -536,12 +575,12 @@ internal static class Program
     {
         var pixels = Enumerable.Repeat((byte)255, checked(width * height * 4)).ToArray();
         for (var y = 20; y < height - 20; y++)
-        for (var x = 20; x < width - 20; x++)
-        {
-            var offset = (y * width + x) * 4;
-            pixels[offset] = pixels[offset + 1] = pixels[offset + 2] = 15;
-            pixels[offset + 3] = 255;
-        }
+            for (var x = 20; x < width - 20; x++)
+            {
+                var offset = (y * width + x) * 4;
+                pixels[offset] = pixels[offset + 1] = pixels[offset + 2] = 15;
+                pixels[offset + 3] = 255;
+            }
         return new ImageFrame(width, height, pixels);
     }
 

@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-android36.0</TargetFramework>
+    <SupportedOSPlatformVersion>26.0</SupportedOSPlatformVersion>
+    <ApplicationId>com.grayscaleconsultants.tatapp</ApplicationId>
+    <ApplicationTitle>TATAPP — Tattoo Art Prepper</ApplicationTitle>
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>0.3.0</ApplicationDisplayVersion>
+    <RuntimeIdentifiers Condition="'$(RuntimeIdentifier)' == ''">android-arm64;android-x64</RuntimeIdentifiers>
+    <AndroidPackageFormats>apk</AndroidPackageFormats>
+    <AndroidUseAapt2>true</AndroidUseAapt2>
+    <AndroidEnableMarshalMethods>true</AndroidEnableMarshalMethods>
+    <RootNamespace>TATAPP.AndroidApp</RootNamespace>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <TatappLlamaNativeDir Condition="'$(TATAPP_LLAMA_NATIVE_DIR)' != ''">$(TATAPP_LLAMA_NATIVE_DIR)</TatappLlamaNativeDir>
+    <TatappLlamaNativeDir Condition="'$(TatappLlamaNativeDir)' == ''">$(MSBuildProjectDirectory)/../../artifacts/android/native/llamasharp-0.27.0/native</TatappLlamaNativeDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\TATAPP.Core\TATAPP.Core.csproj" />
+    <PackageReference Include="LLamaSharp" Version="0.27.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
+    <Compile Include="..\..\tests\TATAPP.Android.Instrumentation\OfflineAiSmokeActivity.cs"
+             Link="OfflineAiSmokeActivity.cs"
+             Condition="'$(TatappEnableOfflineAiSmoke)' == 'true'" />
+  </ItemGroup>
+  <ItemGroup>
+    <AndroidNativeLibrary Include="$(TatappLlamaNativeDir)/android-arm64-v8a/*.so"
+                          Condition="'$(RuntimeIdentifier)' == '' Or '$(RuntimeIdentifier)' == 'android-arm64'">
+      <Link>lib/arm64-v8a/%(Filename)%(Extension)</Link>
+      <Abi>arm64-v8a</Abi>
+    </AndroidNativeLibrary>
+    <AndroidNativeLibrary Include="$(TatappLlamaNativeDir)/android-x86_64/*.so"
+                          Condition="'$(RuntimeIdentifier)' == '' Or '$(RuntimeIdentifier)' == 'android-x64'">
+      <Link>lib/x86_64/%(Filename)%(Extension)</Link>
+      <Abi>x86_64</Abi>
+    </AndroidNativeLibrary>
+  </ItemGroup>
+  <Target Name="ValidateTatappLlamaNativeRuntime" BeforeTargets="Build">
+    <Error Condition="('$(RuntimeIdentifier)' == '' Or '$(RuntimeIdentifier)' == 'android-arm64') And (!Exists('$(TatappLlamaNativeDir)/android-arm64-v8a/libllama.so') Or !Exists('$(TatappLlamaNativeDir)/android-arm64-v8a/libmtmd.so') Or !Exists('$(TatappLlamaNativeDir)/android-arm64-v8a/libggml.so') Or !Exists('$(TatappLlamaNativeDir)/android-arm64-v8a/libggml-base.so') Or !Exists('$(TatappLlamaNativeDir)/android-arm64-v8a/libggml-cpu.so'))" Text="TATAPP's five ARM64 LLamaSharp libraries are missing from $(TatappLlamaNativeDir). Run scripts/android/build-llamasharp-native.sh or set TATAPP_LLAMA_NATIVE_DIR to a validated directory containing android-* ABI folders." />
+    <Error Condition="('$(RuntimeIdentifier)' == '' Or '$(RuntimeIdentifier)' == 'android-x64') And (!Exists('$(TatappLlamaNativeDir)/android-x86_64/libllama.so') Or !Exists('$(TatappLlamaNativeDir)/android-x86_64/libmtmd.so') Or !Exists('$(TatappLlamaNativeDir)/android-x86_64/libggml.so') Or !Exists('$(TatappLlamaNativeDir)/android-x86_64/libggml-base.so') Or !Exists('$(TatappLlamaNativeDir)/android-x86_64/libggml-cpu.so'))" Text="TATAPP's five x86_64 LLamaSharp libraries are missing from $(TatappLlamaNativeDir). Run scripts/android/build-llamasharp-native.sh or set TATAPP_LLAMA_NATIVE_DIR to a validated directory containing android-* ABI folders." />
+  </Target>
+</Project>

@@ -1,0 +1,13 @@
+Qwen3-VL model notice
+
+The optional Qwen3-VL model files are not bundled with TATAPP. If the user
+consents, the app downloads the exact checksum-pinned artifacts identified in
+offline_ai_models.json from:
+
+https://huggingface.co/unsloth/Qwen3-VL-2B-Instruct-GGUF
+
+The model repository declares the model under the Apache License 2.0. Qwen is
+developed by the Qwen Team at Alibaba Cloud. The Apache License 2.0 terms are
+available at https://www.apache.org/licenses/LICENSE-2.0 and in the upstream
+model repository. TATAPP does not modify or redistribute the model artifacts;
+they are downloaded only after explicit consent into app-private storage.

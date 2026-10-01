@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "revision": "qwen3-vl-2b-q4_0-f16-r2",
+  "models": [
+    {
+      "id": "qwen3-vl-2b-instruct-q4_0-f16",
+      "displayName": "Qwen3-VL 2B Instruct Q4_0 with F16 vision projector",
+      "quantization": "Q4_0 text / F16 projector",
+      "qualityRank": 1,
+      "tested": true,
+      "minimumApiLevel": 26,
+      "supportedAbis": ["arm64-v8a", "x86_64"],
+      "minimumMemoryClassBytes": 201326592,
+      "minimumAvailableMemoryBytes": 4294967296,
+      "workingSetBytes": 2684354560,
+      "memorySafetyReserveBytes": 805306368,
+      "storageSafetyReserveBytes": 536870912,
+      "maximumImageDimension": 768,
+      "contextTokens": 2048,
+      "maximumOutputTokens": 160,
+      "requiredCpuFeatures": [],
+      "requiredAcceleration": "Cpu",
+      "artifacts": [
+        {
+          "fileName": "Qwen3-VL-2B-Instruct-Q4_0.gguf",
+          "downloadUri": "https://huggingface.co/unsloth/Qwen3-VL-2B-Instruct-GGUF/resolve/main/Qwen3-VL-2B-Instruct-Q4_0.gguf",
+          "downloadBytes": 1056784064,
+          "installedBytes": 1056784064,
+          "sha256": "d9ca31f524d063c04e49d1af7b0b37061b21e7f8a7e460141654efe287600234"
+        },
+        {
+          "fileName": "mmproj-F16.gguf",
+          "downloadUri": "https://huggingface.co/unsloth/Qwen3-VL-2B-Instruct-GGUF/resolve/main/mmproj-F16.gguf",
+          "downloadBytes": 819395232,
+          "installedBytes": 819395232,
+          "sha256": "cd5a851d3928697fa1bd76d459d2cc409b6cf40c9d9682b2f5c8e7c6a9f9630f"
+        }
+      ]
+    }
+  ]
+}

@@ -1,47 +1,190 @@
 # Architecture
 
-## Projects
+## Project boundaries
 
-- `TATAPP.Core` contains the framework-independent BGRA32 image model, 16-state stage catalog, body-region/default profiles, tattoo-ink texture preparation, format catalog, and deterministic transformation engine.
-- `TATAPP.App` is a native WPF Windows 11 UI. It handles decoding, EXIF orientation, preview scaling, camera handoff, generated WPF 3D anatomy, synchronized visual/accessible placement controls, asynchronous rendering, atomic same-format encoding, and the optional local-Qwen accessibility workflow.
-- `TATAPP.Tests` is a dependency-free executable test harness covering pixel behavior, outline ordering, anatomy defaults and regions, ink texture extraction, synchronized selection paths, determinism, cancellation, encoders, model selection, local API requests, complete description preloading, UI Automation metadata, and camera fallback behavior.
+- `TATAPP.Core` targets `net10.0`. It owns the BGRA32 image model, stage
+  catalog and mappings, deterministic transforms, tattoo-ink preparation,
+  format metadata, anatomical definitions and generated triangle meshes,
+  camera framing, immutable workflow state, byte-budget LRU infrastructure,
+  offline-model policy, installation contracts, and sequential description
+  orchestration.
+- `TATAPP.App` targets `net10.0-windows` and remains the native Windows 11 WPF
+  application. It owns Windows decoding/encoding, Camera handoff, WPF 3D,
+  UI Automation, shell navigation, persistence, and Ollama integration.
+- `TATAPP.Android` targets `net10.0-android36.0`. It uses native Android views
+  and services for system picker/camera intents, app-private storage, decoding,
+  `Canvas` rendering, lifecycle, TalkBack semantics, SAF export, external-link
+  intents, model download, and LLamaSharp inference.
+- `TATAPP.Core.Tests` is the cross-platform executable regression harness.
+- `TATAPP.Tests` is the Windows/WPF executable regression harness.
+- `TATAPP.Android.Instrumentation` is a dependency-free Java instrumentation
+  runner built by `scripts/test-android-instrumentation.sh` for an authorized
+  device or emulator.
+
+This separation keeps transformation formulas, stage identity, body-region
+meaning, model admission, validation, and description sequencing in one shared
+library. Platform code supplies only the capabilities that differ: image I/O,
+system intents, storage, rendering, audio, accessibility announcements, model
+files, hardware probes, and external links. Android registers its services
+through `Microsoft.Extensions.DependencyInjection`; work is asynchronous and
+cancellable across those boundaries.
+
+## Why native .NET for Android
+
+The Android project uses the supported .NET Android SDK directly rather than
+MAUI. Repository evidence favored this narrower architecture: the existing WPF
+application must remain unchanged, shared Core has no UI dependency, and the
+port needs exact Android lifecycle, native accessibility, URI-grant, Storage
+Access Framework, and memory-pressure behavior. Adding MAUI would not make WPF
+shared and would insert controls/handlers between TATAPP and the Android APIs it
+must verify.
+
+The selected baseline is .NET SDK 10.0.401, Android workload 36.1.69,
+`net10.0-android36.0`, minimum API 26, target/compile API 36, package
+`com.grayscaleconsultants.tatapp`, and ABIs `arm64-v8a` and `x86_64`. The APK
+version is 0.3.0 (`versionCode` 1). The native inference build is pinned to NDK
+27.0.12077973, CMake 3.22.1, LLamaSharp 0.27.0, and llama.cpp commit
+`3f7c29d318e317b63f54c558bc69803963d7d88c`.
 
 ## Processing continuum
 
-The engine composites transparent input pixels onto white for printable derived stages. Its source-domain render values interpolate color into perceptual grayscale, move through an Otsu-derived black/white threshold, blend stencil regions into Sobel-derived line art, and decrease morphological line thickness from four pixels to one source-pixel edge. Before WPF materializes decoded pixels, the loader rejects images above 32 megapixels or images whose estimated buffers would consume a reserved two gigabytes needed by Windows and assistive technology. Full-resolution derived saves repeat the current-memory check before allocating their larger working set.
+The engine composites transparent input pixels onto white for printable
+derived stages. Source-domain render values interpolate color into perceptual
+grayscale, move through an Otsu-derived black/white threshold, blend stencil
+regions into Sobel-derived line art, and decrease morphological line thickness
+from four pixels to one source-pixel edge. Slider zero returns a byte-identical
+clone.
 
-The UI catalog maps the first eight semantic states to those source-domain renders. The next eight reverse their source representations—fine outline through full color—and apply them to a curved surface mesh. `TattooInkTexture` estimates and removes the clean design-sheet background, darkens marks to resemble ink beneath skin, retains supported color, and maps the result through WPF texture coordinates. Slider zero returns a byte-identical clone. Preview rendering uses a bounded 1600-pixel image and cancellation/debouncing. A flat save reruns the same engine against the full-resolution source; a placement save captures the exact final 3D viewport without reframing or cropping it.
+The shared catalog maps the first eight semantic stages to those flat renders.
+The next eight reverse their source representations—fine outline through full
+color—and apply them to a selected anatomical surface. UI code obtains names,
+descriptions, representative slider values, source-render values, and ordering
+from that catalog; it does not maintain a second formula table.
 
-## Generated anatomy and synchronized selection
+Windows preview rendering is bounded to 1,600 pixels and full-resolution saves
+rerun memory checks. Android imports a maximum 128 MiB compressed stream,
+rejects decoded images above 32 megapixels, normalizes EXIF orientation and
+color into ARGB8888, and bounds preview input to 1,600 pixels. Android delays
+expensive rendering for 65 ms after stage movement and cancels older work.
+Generation numbers ensure stale import/render results cannot replace the
+current source.
 
-`AnatomyViewportController` constructs a full-body mannequin from local ellipsoid and cylinder meshes, so no network model, WebView, or third-party 3D runtime is required. Its placement patches sit just above the relevant curved surface and provide texture coordinates for upper arms, forearms, wrists, shoulders, chest/abdomen, back, thighs, and calves. Hit testing maps visual taps—including inner versus outer arm surfaces—to `BodyRegionKind`; the main window then updates the native dropdown. Dropdown selection calls the same controller path and reorients the model to the selected surface. Sex, model-height scale, complexion, rotation, and zoom remain explicit application state and feed UI Automation descriptions.
+## Anatomy and synchronized selection
 
-Every anatomical development stage uses a deterministic region-aware camera plan. It begins with a context frame that keeps the selected surface and useful neighboring anatomy visible—for example, head, neck, left shoulder, upper arm, and upper-left chest—holds briefly, and then eases into a close inspection frame centered on the applied design. The plan covers every body region and stores separate context and detail targets and distances. A stage change replays the context-to-detail movement; manual rotation or zoom safely takes over from the camera animation. Offline AI capture bypasses motion and uses the same plan's settled detail frame, ensuring its description is grounded in the image users actually inspect.
+`AnatomicalGeometryCatalog` constructs the repository-defined body segments and
+placement surfaces as shared three-dimensional triangle meshes. The WPF app
+materializes those definitions with `Viewport3D`. Android transforms the same
+vertices for sex, height, rotation, camera distance, and region framing,
+perspective-projects them, and draws them on an Android `Canvas`. Projected
+triangles also provide hit testing and selected-region bounds, so rendering and
+touch cannot drift into separate region definitions. Android does not use
+OpenGL ES.
 
-## Offline AI description pipeline
+Visual taps dispatch one body-region selection. The native picker then adopts
+it while a synchronization guard suppresses recursive callbacks. Picker
+selection follows the inverse route, applying the region's preferred rotation
+and context camera. Sex, height, complexion, rotation, zoom, reduced-motion,
+and stage remain explicit immutable workflow state. The standard picker and
+buttons provide equivalent functionality when TalkBack touch exploration
+disables model gestures.
 
-Offline AI Describe is opt-in and inactive by default. Enabling it for a loaded photo performs this ordered workflow:
+Every anatomical stage uses the shared region camera plan. Normal motion begins
+at the context frame and moves toward the centered detail frame; reduced motion
+renders the detail state immediately. Offline-description capture uses the same
+state without animation.
 
-1. `GlobalMemoryStatusEx`, display-adapter registry data, and `nvidia-smi` when available provide a conservative hardware snapshot.
-2. The selector chooses Qwen3-VL 2B, 4B, or 8B using conservative total/free-RAM and dedicated-VRAM thresholds. Eight-gigabyte and integrated-graphics systems always use 2B. The 4B tier requires 16 GB RAM, 9 GB currently available, and 6 GB dedicated VRAM; 8B requires 32 GB RAM, 16 GB available, and 10 GB dedicated VRAM.
-3. TATAPP checks Ollama 0.12.7 or newer over the fixed `127.0.0.1:11434` endpoint with proxy use disabled. Missing model installation occurs only after explicit consent.
-4. The deterministic engine renders one representative image for each of the eight flat states. For each of the eight placement states, TATAPP applies the corresponding reverse-stage texture and captures the actual WPF 3D viewport. Images are resized to the selected model tier's limit and encoded as in-memory PNGs.
-5. The local model describes all 16 states strictly sequentially. Images, context, and output tokens are bounded; TATAPP leaves the backend's model-aware token-batch sizing intact because forcing a token batch of one is invalid for vision embeddings. Keep-alive is zero, the model receives an explicit unload after every state, large temporary buffers are reclaimed between states, and current available memory is rechecked before every render and model load. A lost safety reserve stops the operation before another inference begins. The prompt includes the authoritative stage name, processing definition, and verified subject context from the original stage, requires exactly two concise complete sentences, keeps descriptions within visible evidence, and tells the model not to infer body attributes that application state already knows.
-6. Results are committed to the stage cache only after all 16 descriptions succeed. Until then the slider is disabled, progress is exposed through UI Automation, and a low-volume heartbeat sounds every four seconds.
-7. Once committed, slider stage changes are dictionary lookups followed by a polite live-region event; no inference occurs during slider movement.
+## Android state, memory, and lifecycle
 
-Cancellation or any runtime, model, memory, or malformed-response failure discards the incomplete cache, disables Offline AI Describe, restores the standard deterministic slider, and provides an accessible explanation. It never presents a partially prepared description set as complete.
+The Android Activity owns four cancellation domains: Activity lifetime,
+import, stage render, and AI preparation. A newer import or render cancels its
+predecessor. Compact instance state contains reconstructable app-private source
+identity, current stage/anatomy values, pending camera destination, and the
+immutable export snapshot—not pixels, bitmaps, descriptions, or tensors.
 
-Ollama and Qwen weights are not bundled. The only remote navigation is the official Ollama download page after a user's explicit choice, and model downloads are performed by the local Ollama service after separate consent. Photograph data is never sent to that download site or any remote model API.
+The preview cache is LRU-bounded to one eighth of Android's memory class,
+clamped to 12–48 MiB. Imports and capture files reside in app-private storage;
+abandoned temporary files are deleted. `OnTrimMemory` clears cached frames and
+cancels work as pressure/background state increases. `OnLowMemory`, Activity
+stop, and Activity destruction stop audio and cancel inference. Replaced
+bitmaps, model media, contexts, weights, streams, and cancellation sources are
+explicitly disposed. The manifest does not request `largeHeap`.
 
-## External organization link
+Android export snapshots the currently displayed semantic stage and anatomy
+before opening `ACTION_CREATE_DOCUMENT`. Flat stages rerender from full source
+unless their estimated working allocation would exceed 45% of the memory
+class, in which case the bounded high-quality preview is used with a user
+notice. Anatomical export captures the snapshot's settled placement state.
+Successfully decoded JPEG/PNG preserve format; successfully decoded BMP,
+TIFF, and GIF inputs receive an explicit PNG fallback. Signature recognition
+does not guarantee that a particular Android build supplies a TIFF decoder.
+The original URI is never silently overwritten.
 
-The BLACK WIDOW TATTOO action uses Windows shell navigation to open one HTTPS constant in the user's default browser. It does not embed a browser, authenticate with Facebook, transmit photo data, or run while merely focused. Navigation occurs only after the button is activated, and shell-launch failure returns through TATAPP's accessible error path.
+## Offline AI description pipelines
 
-## File integrity
+### Windows
 
-Decoding uses WPF's built-in codecs with `OnLoad`, so source files remain unlocked. Common EXIF orientation values are normalized. Saving writes a sibling `.partial` file with the encoder selected from the source format and then atomically replaces the requested destination. JPEG uses quality 95; TIFF uses ZIP compression. Pixel dimensions and source DPI are retained.
+Windows retains its opt-in local Ollama workflow. Hardware inspection selects
+the established 2B/4B/8B tier, the user consents to model installation, and
+actual flat renders/WPF viewport captures are described sequentially. Results
+become visible only as a complete 16-stage cache.
 
-## Camera workflow
+### Android
 
-TATAPP launches the trusted Windows Camera application through its registered URI. Before launch it snapshots supported files in local and OneDrive Camera Roll locations. After TATAPP loses and regains focus, it loads the newest qualifying file. No camera frame, photograph, or metadata leaves the computer.
+Android uses shared policy/orchestration with platform implementations for
+capability probing, app-private installation, rendered-stage capture, and an
+in-process LLamaSharp session. The probe records API level, supported ABIs,
+ordinary and large memory classes, current available/low-memory state, free
+storage, CPU flags, and available acceleration. Policy does not rely on
+`largeMemoryClass` and rejects every variant that is untested or misses any
+resource gate.
+
+The current configurable catalog contains one Qwen3-VL 2B Q4_0 text model plus
+F16 multimodal projector. Its exact checksum-verified pair completed one
+offline original-stage inference over a synthetic 192-pixel black-ring image
+on an API 36 x86_64 emulator with 16 KiB pages. The roughly eight-minute smoke
+peaked near 2.17 GB PSS, released inference memory afterward, and produced a
+nonempty description without OOM or crash. This justifies the catalog's tested
+flag for that narrow profile; it does not establish ARM64, full-batch, quality,
+thermal, repeated-workflow, physical-device, or assistive-technology results.
+Exact artifact sizes, SHA-256 values, URLs, and thresholds are in `ANDROID.md`.
+
+For any eligible tested catalog entry, installation is explicit and resumable over
+HTTPS. Partial files remain under an app-private staging directory. Length and
+SHA-256 verification precede atomic directory promotion, and ready status
+requires the exact artifact count and installed-byte total. Model selection
+chooses the smallest eligible tested variant; fallback candidates must be both
+lower-ranked and lower-working-set. The current one-entry catalog therefore has
+no smaller model fallback; an admission or runtime failure returns to the
+clearly explained non-AI editing workflow.
+
+Preloading opens one model session and renders every current catalog stage
+strictly in order with a fresh memory check before each stage. Images, visual
+tokens, context, output, and CPU threads are capped. A batch is committed to the
+bounded description cache only after every stage succeeds. Cancellation,
+pressure, malformed output, or inference failure disposes the session and
+retains no partial ready cache. The foreground-only heartbeat is supplementary
+to visible progress and stops on completion, cancellation, error, stop, or
+low-memory callbacks.
+
+## Privacy and external navigation
+
+The Android manifest declares only `INTERNET`, reserved for a future consented
+model download. Image selection/capture/export rely on scoped system URI grants,
+so no camera or broad storage permission is needed. There is no analytics,
+advertising, cloud image inference, or ordinary-editing network dependency.
+
+BLACK WIDOW TATTOO stores one HTTPS destination in shared product metadata.
+Windows uses shell navigation and Android sends an `ACTION_VIEW` browsable
+intent. Neither path opens on focus, authenticates, or transmits a photo.
+
+## Build and supply-chain boundary
+
+The Android project references managed LLamaSharp only. LLamaSharp's stock
+Android backend is not used because its current shared objects have 4 KiB ELF
+alignment. `scripts/android/build-llamasharp-native.sh` rebuilds the five
+required libraries for both ABIs from the exact pinned llama.cpp commit with
+flexible-page support and records hashes/provenance/licenses. Generated native
+libraries, model weights, APKs, keystores, and credentials remain ignored and
+outside source control. `scripts/android/verify-apk.sh` independently checks
+the final package, permissions, ABIs, native alignment, ZIP alignment, and
+signature.

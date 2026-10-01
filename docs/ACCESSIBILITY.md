@@ -1,24 +1,240 @@
 # Accessibility contract
 
-TATAPP treats accessibility as application behavior rather than descriptive documentation alone.
+TATAPP treats accessibility as application behavior. Every task has a standard
+control path; neither spatial discovery nor manipulation of the anatomical
+model is required.
 
-- Buttons, radio buttons, dropdowns, sliders, the preview, and the 3D viewport expose explicit UI Automation names and help text.
-- Native WPF controls retain familiar Narrator, NVDA, JAWS, keyboard, touch, and High Contrast behavior.
-- Access keys are declared in control labels and the tab sequence follows the visual workflow: capture/select, save, preview, anatomical controls, and development slider.
-- The default state is explicitly announced as a male model, 163 centimeters (average Filipino adult), light-brown to medium-tan Filipino complexion, with the outer left upper arm from deltoid to elbow selected.
-- A sighted user's body-surface tap updates the native **Body region** dropdown. A keyboard or JAWS user's dropdown choice updates and orients the visual model. Rotation, zoom, sex, size, and complexion changes update a polite anatomical-state live region.
-- Each anatomical development stage first shows meaningful surrounding anatomy and then smoothly moves to a close view of the selected surface. The visible and accessible state identifies that context-to-detail behavior; completing the non-speech camera movement refreshes state without forcing a second JAWS announcement.
-- The preview is keyboard-focusable and its accessible name changes to identify the source file, current stage, and a concise explanation of the visual result.
-- A polite live region announces consequential state changes without interrupting every one-percent slider movement. Stage announcements occur only when the semantic stage changes.
-- **Offline AI Describe** exposes an explicit checkbox name, help text, and state through UI Automation. Its description region is keyboard-focusable and raises polite `LiveRegionChanged` events that JAWS can read. Native UI Automation also preserves interoperability with NVDA and Narrator; browser ARIA attributes are not applicable to a WPF desktop window.
-- Offline descriptions are generated from each actually rendered stage, not inferred from the filename. Flat stages use the deterministic pixel render; anatomical stages use a screenshot of the actual settled, region-focused WPF 3D viewport after the camera plan reaches its close frame. The prompt requests concrete subject, composition, contour, contrast, lost-detail, and supported surface-wrap information while prohibiting unsupported identities, body attributes, color claims, placement advice, and hidden content.
-- The slider remains disabled until all 16 flat and anatomical descriptions are complete. A quiet non-speech heartbeat plays every four seconds during this potentially long operation, while concise live progress identifies each completed stage. This lets a JAWS user distinguish active work from a stalled application without continuous spoken interruption. Conservative model tiers, one-at-a-time rendering/inference, per-stage model unloading, and repeated free-memory guards stop the optional feature cleanly before low-memory pressure can threaten Windows or the screenreader.
-- Completed descriptions are cached by semantic stage. Slider movement therefore changes the displayed and spoken description immediately and never waits on the model. When Offline AI Describe is active, its polite live-region event contains only the cached vivid description; redundant stage, slider, and body-control metadata are not appended to the JAWS utterance.
-- Busy operations disable conflicting actions and expose an indeterminate progress indicator.
-- Windows' accessible file dialogs and message boxes are used instead of custom inaccessible dialogs.
-- Camera instructions explicitly describe how to return and provide **Select photo** as a fallback if Camera Roll cannot be detected.
-- The visually emphasized **BLACK WIDOW TATTOO** button has an explicit UI Automation name, help text, `Alt+B` access key, native focus behavior, and an accessible error if Windows cannot open its Facebook destination.
+## Windows
 
-If Ollama or a model is missing, TATAPP uses native accessible message boxes to explain the requirement and obtain consent. The model name, hardware-selected tier, download implications, local-processing boundary, progress, and recovery action are stated in text; no sound is the sole carrier of information.
+The WPF application retains native UI Automation behavior for JAWS, Narrator,
+NVDA, keyboard input, touch, Windows text scaling, and High Contrast:
 
-The automated test harness verifies names, help text, access keys, live-region metadata, slider bounds, stage-cache completeness, conservative hardware tiers, per-stage model unloading, repeated memory checks, oversized-image rejection, loopback-only model requests, prompt grounding, bounded model images, heartbeat validity, and the camera fallback. Manual release testing should additionally cover current JAWS, 200% scaling, keyboard-only operation, Windows High Contrast themes, model installation, and an actual Qwen description run.
+- buttons, radio buttons, dropdowns, sliders, previews, and the 3D viewport
+  expose names and useful help text;
+- access keys and tab order follow capture/select, save, preview, anatomy, and
+  visual development;
+- body-surface taps and the native Body region dropdown remain synchronized;
+- the preview and Offline AI description expose dynamic, focusable text;
+- consequential progress, stage, save, and error updates use polite live
+  regions without announcing every slider pixel;
+- Windows file dialogs and message boxes remain native.
+
+The Windows default announcement identifies male, 163 centimeters (average
+Filipino adult), light brown to medium tan Filipino complexion, and the outer
+left upper arm from deltoid to elbow. The quiet heartbeat during optional
+Ollama preprocessing is accompanied by visible/live progress and is never the
+only status channel.
+
+## Android semantic behavior
+
+Android uses native View accessibility APIs rather than web ARIA or
+Windows-only automation properties.
+
+- Headings are marked through `AccessibilityHeading` on supported releases.
+- Buttons, checkboxes, switches, radio buttons, spinners, sliders, preview, and
+  anatomy view expose native roles, names, state/value descriptions, enabled
+  state, and concise help where useful.
+- Hierarchy order is stable: app heading; Take photo, Select photo, SAVE current
+  look, BLACK WIDOW TATTOO; Start or Workspace content; then the final status
+  region. Within Workspace the source/previews precede anatomy controls, stage
+  controls, Offline AI, progress, and status.
+- The stage control is a native SeekBar with range semantics. It adds custom
+  **Previous stage** and **Next stage** actions only when that action is
+  available. Separate 48 dp Previous Stage and Next Stage buttons provide the
+  same behavior for switch, keyboard, and direct-touch users.
+- Moving through pixels updates visible value text but does not speak on every
+  pixel. Crossing into a new semantic stage announces one loading state; after
+  the 65 ms cancellable settle/render, one ready state names the exact stage.
+- The final application status and dedicated Offline AI description are polite
+  live regions. The description region remains focusable and is updated in
+  place; focus is not repeatedly forced into it.
+- The preview description names the imported file, stage number/name, and
+  visual effect. The anatomy description contains equivalent textual placement
+  state. Decorative containers are excluded from the accessibility tree.
+- All native action controls have at least 48 dp width/height and spacing.
+  Text uses scaled pixels inside a scrolling layout that reflows between
+  portrait/landscape and vertical/horizontal action rows. Platform colors and
+  explicit outlines preserve selection/focus and light/dark-theme contrast;
+  meaning is also expressed in text and shape rather than color alone.
+- Back from Workspace returns to Start and exposes **Resume workspace** without
+  destroying the current image. Cancellation, corrupt images, save failure,
+  unavailable camera/provider, and unavailable Offline AI produce textual
+  status plus a native dialog when recovery requires attention.
+
+## Anatomical alternatives
+
+Sighted users can tap a projected mesh surface, drag horizontally to rotate,
+and use the visible selected-surface outline. TalkBack touch exploration causes
+the model to stop consuming drag/tap gestures, avoiding conflict with Explore
+by Touch.
+
+The complete non-visual path is the native Body region picker plus Male/Female,
+Rotate left/right, Zoom in/out, Body size, Skin tone and complexion, and Reduce
+anatomy motion controls. Picker changes update the model; model taps update the
+picker through a guarded one-way transaction so no feedback loop occurs. State
+updates identify the region, height, complexion, rotation, and camera distance.
+Reduced motion replaces context-to-detail camera animation with the settled
+detail view.
+
+## Offline AI announcements
+
+Offline AI Describe is opt-in. The checkbox identifies local model use,
+installation consent, and the no-upload boundary. Download progress has an
+accessible percentage; within one install phase, UI updates require both a
+five-percentage-point advance and at least 750 ms (phase changes and completion
+are immediate). Sequential preprocessing announces the first, every fourth,
+and final stage rather than all transient work. The comfortable low-volume heartbeat is
+supplementary, runs only while foreground preprocessing is active, and stops on
+success, cancellation, error, backgrounding, or low-memory cleanup.
+
+A completed description cache must contain every current catalog stage before
+the UI says ready. Selecting a preloaded stage changes the readable description
+immediately without moving focus. Descriptions are grounded in the actual flat
+render or settled anatomical capture and are prompted to distinguish visible
+facts from uncertainty.
+
+The exact Android model/projector pair has passed one synthetic original-stage,
+two-call Qwen3-VL runtime smoke on an API 36 x86_64 emulator. That test did not
+run TalkBack or a complete 16-stage description batch. Accessibility readiness
+therefore still requires the manual AI steps below on the exact release APK;
+the UI must never claim ready merely because files downloaded or a bounded
+smoke succeeded.
+
+## Touchscreen operation without TalkBack
+
+1. Tap **Take photo** to use the installed camera, or **Select photo** to use the
+   system photo picker.
+2. Swipe the page vertically to reach anatomy and stage controls.
+3. Tap a visible body surface or choose it from **Body region**. Drag the model
+   horizontally to rotate, or use the rotation buttons for exact increments.
+4. Use Zoom, Body size, Skin tone and complexion, and Reduce anatomy motion as
+   needed.
+5. Drag the stage slider or use Previous Stage/Next Stage. Wait for the visible
+   `Ready` status before saving.
+6. Tap **SAVE current look**, choose a new document name/location, and confirm
+   the stated format. TATAPP does not overwrite the import silently.
+
+## Verification matrix
+
+The connected instrumentation runner recorded 27 passed, 0 failed, and 2
+explicit skips on an API 36 x86_64 16 KiB emulator. The skips were the
+loaded-model integrated UI/heartbeat workflow and human TalkBack speech/Explore
+by Touch. The final multi-ABI APK separately passed install, cold offline launch,
+and same-version reinstall on that emulator. No human TalkBack session was
+performed; the partial manual observations below are non-TalkBack emulator
+checks and do not establish speech or visual quality.
+
+| Scenario | Automated evidence | Required human/device evidence | Current human status |
+| --- | --- | --- | --- |
+| Launch, focus order, semantics, 48 dp controls | Native view/node assertions passed | Listen to TalkBack order; Explore by Touch; switch/keyboard activation | TalkBack UNVERIFIED; final APK cold/offline launch passed on emulator |
+| Picker, cancellation, corrupt input, rapid replacement | Real fixture and direct result/lifecycle assertions passed | System picker/provider behavior with small and large designs | Partial: emulator system picker loaded 256x256 PNG and 6000x4000 JPEG; no TalkBack or physical-device usability check |
+| Stage ordering, Previous/Next, rapid slider, settled status | Exact labels/actions and one polite status source asserted and passed | Listen for one loading/ready sequence and no pixel chatter | Partial: stage 2 visibly settled ready; spoken behavior UNVERIFIED |
+| Anatomy defaults and non-default synchronization | Shared-catalog count, picker/model tap, complexion pixel change, semantics and recreation asserted and passed | Judge visible placement/highlight; TalkBack alternative and touch-exploration behavior | Partial: rotation retained stage 12 anatomy; human visual and TalkBack quality UNVERIFIED |
+| Save current visible stage | Test-only SAF provider compares exported pixels and forces write failure | System DocumentsUI success/cancel/denial and visual comparison | Partial: final APK saved a selected 256x256 Original image as a new PNG through DocumentsUI; cancel/denial and human visual comparison remain UNVERIFIED |
+| Font/display scale, rotation and recreation | 2x-text/320 dp structural stress and orientation recreation passed | Maximum practical system font/display scales in portrait/landscape | Partial: 2x-font start screen usable and rotation retained state on emulator; maximum practical settings and human accessibility remain UNVERIFIED |
+| Memory/lifecycle | Critical trim/low-memory callback usability and stale-source fences passed | Repeated imports, backgrounding and profiler evidence on constrained hardware | Partial emulator evidence: PSS about 50 MB cold, 61 MB small, 74 MB large, 108 MB after anatomy/rotation/resume, 111 MB repeated small, 90 MB after background trim; ARM64 and inference stress UNVERIFIED |
+| BLACK WIDOW TATTOO | Focus emits no intent; activation emits exact browsable URL | Browser launch, return, and preserved TalkBack focus | Partial: final APK opened the exact HTTPS URL in Chrome and Back restored the workspace; TalkBack focus preservation remains UNVERIFIED |
+| Offline AI and heartbeat | False-ready fence passed; separate actual-model two-call x86_64 smoke passed | Exact-model install, offline 16-stage preload, cancellation, memory, speech, and heartbeat lifetime | Loaded-model integrated UI and human TalkBack UNVERIFIED; no ARM64 inference claim |
+
+The SAF provider exists only in the test APK; it is not a production exported
+component. The release verifier separately rejects unexpected exported
+production components.
+
+## Manual TalkBack acceptance script
+
+Status: **not physically performed for this Android release candidate**. Record
+device model/build, font/display scale, TalkBack version, APK SHA-256, and every
+deviation when this script is actually run. Automated node inspection is not a
+substitute for listening to TalkBack.
+
+Prerequisites: one small and one large isolated design; one corrupt or renamed
+non-image file; Android's largest practical font/display setting; portrait
+orientation; TalkBack enabled; an external browser; and, for steps 11–12 only,
+a separately validated/installed catalog model that is eligible while the
+device is offline.
+
+1. **Launch and order.** Cold-launch TATAPP. Swipe right from the top. Confirm
+   `TATAPP` is a heading; Take photo, Select photo, disabled SAVE current look,
+   and BLACK WIDOW TATTOO occur in that order; Start is a heading; and status
+   says a photo is required. Explore by Touch and activate each primary control
+   target without needing adjacent visual context.
+2. **Picker cancellation.** Activate Select photo, press Back in the system
+   picker, and confirm one `Photo selection canceled` status with no error or
+   focus trap.
+3. **Load and source state.** Select the small design, then rapidly select the
+   large design and the small design again. Confirm only the final selection
+   becomes active and no stale render replaces it. Confirm the Workspace
+   heading/source dimensions, enabled SAVE/Offline AI controls, and
+   `Stage 1 of 16: Original image, Value 0 percent`. Focus the preview and
+   confirm its description names the file and Original image.
+4. **Stage actions and settled speech.** On the stage slider, open TalkBack
+   actions. Confirm Previous stage is absent at stage 1 and Next stage is
+   present. Invoke Next repeatedly and verify each significant stage produces
+   no rapid pixel chatter, one loading announcement, then one exact ready
+   announcement. Use the separate Previous Stage/Next Stage buttons with swipe
+   navigation and a switch/keyboard if available.
+5. **Four representative render states.** Navigate to and inspect the preview
+   at Original image (stage 1/value 0), Binarized stencil (stage 4/value 21),
+   Fine outline (stage 8/value 51), and Placement — full color (stage 16/value
+   100). Confirm the descriptions and images change, first/last actions disable
+   correctly, and the source versus anatomical state is unambiguous.
+6. **Body alternative and synchronization.** Using only swipe navigation,
+   confirm Male, outer surface of left upper arm, 163 centimeters, and light
+   brown to medium tan Filipino complexion. Change to Female and Right calf,
+   change size and complexion, rotate, and zoom. Confirm each settled state is
+   spoken once and the anatomy description matches. With TalkBack off briefly,
+   tap a supported surface and confirm the picker follows; restore TalkBack and
+   verify Explore by Touch does not rotate/select the model.
+7. **Reduced motion and rotation.** Enable Reduce anatomy motion, navigate from
+   a flat stage to an anatomical stage, and confirm the detail view appears
+   without animation and the same textual placement information remains
+   available. Rotate the device during rendering and confirm source, stage,
+   anatomy selections, enabled state, and focus order restore without a stale
+   result replacing the selected stage.
+8. **Save.** On Fine outline, activate SAVE current look, choose a new filename
+   in the system document UI, and confirm success names Fine outline and the
+   format. Cancel a second save and confirm the source/current workspace remain.
+   Force or select an unwritable destination where the device permits it and
+   confirm a named failure without workspace loss. Repeat with decodable
+   BMP/TIFF/GIF input (record a decoder rejection rather than calling it an
+   export failure) and confirm the PNG fallback is stated before saving. Compare
+   the saved image with the visible stage outside TATAPP.
+9. **Error and recovery.** Attempt the corrupt input. Confirm a concise named
+   error/dialog and actionable recovery, then dismiss it and verify the prior
+   workspace remains usable. Exercise unavailable camera/provider or denied
+   destination when the test device can simulate it.
+10. **Back and external link.** From Workspace press Back, activate Resume
+    workspace, and verify state. Focus BLACK WIDOW TATTOO without activating it
+    and confirm no navigation. Double-tap it, verify the browser opens exactly
+    `https://www.facebook.com/grayscaleconsultants`, then return and confirm the
+    workspace and TalkBack focus remain usable.
+11. **Model consent/error boundary.** Activate Offline AI Describe without an
+    installed model. Confirm the dialog states the exact tier and combined size,
+    HTTPS/local-storage behavior, and no-upload boundary. Cancel and confirm the
+    checkbox returns off with one readable status. On a constrained profile,
+    confirm a failed resource gate gives an unavailable explanation and never
+    says ready.
+12. **Validated-model AI gate.** On a device satisfying every configured gate,
+    consent to installation, wait for both exact artifacts to verify, then
+    disconnect networking and enable Offline AI Describe. Confirm visible
+    progress and heartbeat start/stop together, cancellation stops both, and
+    readiness is announced once only after all stages complete.
+    Revisit the four stages in step 5 and verify each cached description updates
+    immediately, corresponds to the actual flat/anatomical render, states
+    uncertainty honestly, and does not steal focus. Background/foreground the
+    app during a fresh preload and confirm it cancels or resumes only as
+    documented, never reporting a partial cache ready.
+13. **Large text/layout.** Repeat core navigation at maximum font/display scale
+    in portrait and landscape. Confirm all controls scroll into view, labels are
+    not clipped beyond understanding, focus order remains logical, touch targets
+    remain usable, and no control is reachable only by drag or visual position.
+14. **Resource and lifecycle stress.** Repeatedly alternate the small and large
+    designs, move the slider rapidly, rotate during processing, background and
+    foreground the app, cancel work, and exercise simulated low-memory and low-
+    storage conditions. Record managed/native memory before and after repeated
+    workflows. Confirm retained memory stabilizes, audio stops on every terminal
+    path, stale results never replace the current design, and any resource
+    reduction is explained instead of ending in an OOM or crash.
+
+Mark physical TalkBack, touchscreen, save-provider, model, and device lifecycle
+checks unverified unless a person actually performs them on the exact final APK.

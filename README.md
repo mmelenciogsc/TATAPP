@@ -1,78 +1,148 @@
 # TATAPP
 
-TATAPP—Tattoo Art Prepper—is a local Windows 11 desktop application for turning a clear, isolated design image into a tattoo-ready visual reference. A single slider moves through:
+TATAPP—Tattoo Art Prepper—is a local C# application for converting a clear,
+isolated design image into tattoo-development and anatomical-placement
+references. The repository contains the original Windows 11 WPF application,
+a native .NET for Android application, shared deterministic processing and
+workflow libraries, and platform-specific accessibility paths.
 
-1. the original color image;
-2. fading color and grayscale;
-3. black-and-white binarization;
-4. line art;
-5. thick, medium, and fine outlines;
-6. anatomical previews that reverse the development sequence from fine outline back through full color on the selected body surface.
+Use a high-resolution design on a clean or transparent background rather than
+a photograph of an existing tattoo on skin. Imported photographs, generated
+stages, previews, and exports remain on the device during ordinary editing.
 
-Use a high-resolution design on a clean or transparent background—not a photograph of an existing tattoo on skin—for the clearest stencil and contour results. The **Save current look** button writes the selected flat stage at full source dimensions and DPI, or captures the anatomical placement preview, in the original input format. JPEG, PNG, BMP, TIFF, and GIF are supported. To protect Windows and an active screenreader from allocation failure, decoded input is capped at 32 megapixels and both loading and full-resolution processing require a two-gigabyte system-memory reserve.
+## Workflow
 
-## Anatomical Visualization
+The shared stage catalog is authoritative. It currently defines eight flat
+stages—Original image, Colors fading, Grayscale, Binarized stencil, Line art,
+Thick outline, Medium outline, and Fine outline—followed by eight anatomical
+stages that reverse from fine outline toward full color on the selected body
+surface. The UI shows the exact stage number, name, and slider value and offers
+Previous Stage and Next Stage actions.
 
-The locally generated full-body 3D mannequin can be changed between male and female, dragged or rotated with accessible buttons, zoomed for placement inspection, and selected by tapping a body surface. An equivalent **Body region** dropdown supports keyboard and JAWS operation and stays synchronized with visual taps in both directions. It covers upper-arm and forearm surfaces, wrists, shoulders, upper chest, full chest and abdomen, upper and full back, thighs, and calves.
+The anatomical visualization supports the repository's 22 surface choices,
+male and female geometry, rotation, zoom, body size, and complexion. Its
+defaults are male, 163 centimeters (average Filipino adult), light brown to
+medium tan Filipino complexion, and the outer surface of the left upper arm
+from deltoid to elbow. A standard body-region picker is synchronized with
+visual surface taps and remains the complete non-visual path.
 
-Body-size and complexion sliders update the model. Defaults are male, the outer left upper arm from deltoid to elbow, 163 centimeters (an average Filipino adult), and light-brown to medium-tan Filipino complexion. After **Fine outline**, eight placement stages show the design wrapped over the chosen contour: fine, medium, and thick outline; line art; black and white; grayscale; returning color; and full color.
+## Android application
+
+The Android application uses native Android views on .NET 10 rather than a
+WebView. The anatomy view projects the shared three-dimensional mesh onto an
+Android `Canvas`; it is not an OpenGL ES renderer. It targets Android API 36,
+supports API 26 and newer, packages `arm64-v8a` and `x86_64`, and uses package
+ID `com.grayscaleconsultants.tatapp`.
+
+Image selection uses Android's system photo picker, with `ACTION_OPEN_DOCUMENT`
+on older supported releases. Capture delegates to the installed camera through
+an app-private `FileProvider` URI. Saving uses the Storage Access Framework and
+never silently overwrites the source. TATAPP recognizes JPEG, PNG, BMP, TIFF,
+and GIF signatures, but import still requires a decoder supplied by the Android
+device (TIFF support is not universal). Successfully decoded JPEG and PNG remain
+in their original format; successfully decoded BMP, TIFF, and GIF inputs receive
+an explicit, non-destructive PNG fallback because Android has no reliable
+encoder for those formats.
+
+The manifest declares only `android.permission.INTERNET`. TATAPP does not ask
+for camera, microphone, broad storage/media, location, contacts, advertising,
+or analytics permission. Internet access is reserved for an explicitly
+consented optional model download; photos and generated descriptions are not
+uploaded.
+
+See [Android build, release, and operation](docs/ANDROID.md) and the
+[accessibility contract](docs/ACCESSIBILITY.md).
 
 ## Offline AI Describe
 
-Check **Offline AI Describe** after loading a photo to prepare a vivid, screenreader-ready description of all 16 meaningful flat and anatomical visual states. TATAPP first inventories system and currently available memory, discrete graphics, and dedicated video memory, then safely selects a local Qwen3-VL tier:
+Windows continues to use the separately installed Ollama/Qwen workflow
+described in the architecture document. Android contains an in-process
+LLamaSharp/llama.cpp implementation and a configurable two-file Qwen3-VL model
+manifest. Android downloads model files only after consent, resumes partial
+HTTPS downloads, verifies declared sizes and SHA-256 digests, and atomically
+moves the complete set into app-private storage.
 
-| Tier | Selection guidance | Model |
-| --- | --- | --- |
-| Compact | Default on 8 GB and integrated-graphics systems; requires at least 4 GB currently available | `qwen3-vl:2b-instruct` |
-| Balanced | At least 16 GB RAM, 9 GB available, and a discrete GPU with at least 6 GB VRAM | `qwen3-vl:4b-instruct` |
-| Professional | At least 32 GB RAM, 16 GB available, and a discrete GPU with at least 10 GB VRAM | `qwen3-vl:8b-instruct` |
-
-Ollama 0.12.7 or newer is the local model runtime. If Ollama is absent, TATAPP offers to open its official Windows download page. If the selected Qwen model is absent, TATAPP explains the download and asks permission before Ollama installs it. Model installation needs internet access; image interpretation does not.
-
-During preparation, the slider is disabled and a quiet two-note heartbeat confirms that work continues. TATAPP processes all stages sequentially with a one-image inference batch, zero model keep-alive, bounded input dimensions, an explicit unload after every stage, and a fresh available-memory check before every model load. If the safety reserve is no longer present, it stops cleanly before inference and retains no partial cache. Qwen sees each actually rendered flat image and each actual captured 3D placement viewport. Once all 16 descriptions are complete, the slider unlocks and changing stage displays and announces its cached description immediately, without inference lag. Exact selected region, body type, size, complexion, and rotation come from application state rather than model guesses.
+The current Android catalog entry is marked `tested: true` after the exact
+checksum-verified model and projector completed one offline, original-stage,
+two-call Qwen3-VL runtime smoke on an API 36 x86_64 emulator with 16 KiB pages.
+That narrow smoke establishes runtime viability on that profile; it does not
+claim ARM64 inference, full 16-stage preload, thermal, physical-device, or human
+TalkBack validation.
+Policy still admits the model only when every API, ABI, storage, current-memory,
+CPU, and acceleration threshold passes. No model weights are stored in this
+repository or redistributed in the APK.
 
 ## Accessibility
 
-The UI is designed for keyboard and screenreader use:
+Windows retains native WPF/UI Automation behavior for JAWS, Narrator, NVDA,
+keyboard input, and High Contrast. Android uses native accessibility semantics
+for TalkBack, switch/keyboard access, Explore by Touch, headings, state/value
+descriptions, polite status regions, and custom Previous/Next stage actions.
+Controls have at least 48 dp targets, layouts scroll under large text, important
+changes are announced only after a semantic stage settles, and reduced-motion
+mode replaces the anatomical camera transition with an immediate detail view.
 
-- `Alt+T` opens Windows Camera, `Alt+S` selects an existing photo, and `Alt+A` saves the current look (the exact access key may follow the underlined letter shown by Windows);
-- every actionable control has an accessible name and help text;
-- the development slider supports Arrow keys and Page Up/Page Down;
-- the anatomical model supports mouse/touch selection and drag rotation, while synchronized native radio buttons, dropdown, sliders, and rotation buttons provide the complete keyboard/JAWS path;
-- stage changes, camera guidance, loading, saving, and errors use a polite UI Automation live region;
-- the preview has a dynamic accessible description containing the file and current visual stage;
-- Offline AI descriptions appear in a keyboard-focusable polite live region tested for JAWS-style UI Automation behavior;
-- system brushes preserve Windows High Contrast behavior and native focus indicators.
+The prominent **BLACK WIDOW TATTOO** action opens
+`https://www.facebook.com/grayscaleconsultants` in the platform browser only
+after deliberate activation.
 
-Windows Camera saves into Camera Roll. When the user returns to TATAPP, a newly created supported image is loaded automatically. If Windows or OneDrive uses a different folder, **Select photo** is the accessible fallback.
+## Build and test
 
-The prominently displayed **BLACK WIDOW TATTOO** button (`Alt+B`) opens the configured Facebook page in the user's default browser. Its current destination is `https://www.facebook.com/grayscaleconsultants` and is isolated in one application constant so the official Black Widow Tattoo URL can replace it later.
+The repository pins .NET SDK 10.0.401. On Linux with the Android workload,
+JDK 17, Android API 36, Build Tools 36.0.0, NDK 27.0.12077973, and CMake 3.22.1:
 
-## Build and run
+```bash
+export DOTNET_BIN=/path/to/dotnet
+export ANDROID_SDK_ROOT=/path/to/android-sdk
+export JAVA_HOME=/path/to/jdk-17
 
-Requirements: Windows 11 and the .NET 10 SDK.
+scripts/android/build-llamasharp-native.sh
+scripts/test.sh
+scripts/build-android.sh
+```
+
+`scripts/test.sh` always runs the cross-platform Core harness. It builds
+Android as an additional gate only when the Android workload, API 36, and both
+validated native ABI folders are present; otherwise it prints an explicit
+skip. Connected-device instrumentation is a separate opt-in command documented
+in [docs/ANDROID.md](docs/ANDROID.md).
+
+The recorded release based on commit `b29bb63` built the full solution in
+Release with warnings as errors and 0 warnings/0 errors; Core passed 44/44. The
+WPF project compiled with 0 warnings/0 errors on Linux, but its runtime tests
+could not run there because `Microsoft.WindowsDesktop.App` 10.0 is unavailable.
+API 36 x86_64 16 KiB-emulator instrumentation recorded 27 passed, 0 failed,
+and 2 skipped: loaded-model integrated UI/heartbeat and human TalkBack.
+
+The signed evaluation APK is
+`artifacts/android/TATAPP-0.3.0-evaluation-arm64-x86_64.apk` (20,128,543 bytes,
+SHA-256 `c84dd4cd5c0383577494ec580443f848b43e941f45c887820d6718057cec5ed2`).
+It contains `arm64-v8a` and `x86_64`, targets API 36 with minimum API 26,
+declares only `INTERNET`, passed v2/v3 signature checks, and has all 132 packaged
+ELF files 16 KiB aligned. Install, cold offline launch, and same-version `-r`
+installation passed on the emulator. An API 32 ARM64 Rokid accepted a fresh
+install and resumed the Activity, but no human visual or accessibility review
+was performed there. A Poco install was blocked by
+`INSTALL_FAILED_USER_RESTRICTED`; an available `armeabi-v7a` watch is outside
+the supported ABI set. Full evidence and the remaining non-claims are in
+[docs/ANDROID.md](docs/ANDROID.md).
+
+On Windows 11 with .NET SDK 10.0.401, the original application remains:
 
 ```powershell
 .\scripts\test.ps1
 dotnet run --project .\src\TATAPP.App\TATAPP.App.csproj
-```
-
-Create a self-contained 64-bit Windows build that does not require a separately installed .NET runtime:
-
-```powershell
 .\scripts\publish.ps1
 ```
 
-The runnable output folder is `artifacts\publish\win-x64`; launch `TATAPP.exe` from that folder and keep its companion runtime files together.
+The self-contained Windows output is `artifacts\publish\win-x64`. Android has
+separate build/signing requirements; signing material must remain outside Git.
 
-The standard image workflow has no third-party runtime dependency. Offline AI Describe optionally uses a separately installed Ollama runtime and Qwen3-VL model. Image pixels are sent only to Ollama's fixed IPv4 loopback address on the same computer; TATAPP performs no image upload or telemetry. See [Third-party notices](THIRD_PARTY_NOTICES.md).
+## Documentation
 
-## Accessible walkthrough
-
-The project includes a real Windows 11 and JAWS walkthrough covering three licensed tattoo designs, all visual-development stages, Offline AI preloading, cached descriptions, saving, and the BLACK WIDOW TATTOO action. Its companion SASRT supplies concise visual context without repeating Piper narration or speaking over the recorded JAWS demonstration. Piper, JAWS, effects, and the royalty-free music bed are independently leveled before measured two-pass mastering. See [walkthrough documentation](docs/WALKTHROUGH.md).
-
-## Current scope
-
-TATAPP provides capture/select, deterministic image processing, an interactive accessible 3D placement preview, optional cached offline visual descriptions, and same-format save. It prepares files for the tattoo artist's existing printer software; direct vendor-specific printer drivers and print dialogs are outside the current scope.
-
-See [Architecture](docs/ARCHITECTURE.md) and [Accessibility](docs/ACCESSIBILITY.md) for implementation details.
+- [Android build, release, privacy, model, and troubleshooting guide](docs/ANDROID.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Accessibility and manual TalkBack script](docs/ACCESSIBILITY.md)
+- [Feature and invariant matrix](docs/FEATURE_MATRIX.md)
+- [Third-party notices](THIRD_PARTY_NOTICES.md)
+- [Windows accessible walkthrough](docs/WALKTHROUGH.md)

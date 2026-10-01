@@ -9,6 +9,7 @@ public static class TattooImageProcessor
     public static ImageFrame Render(ImageFrame source, double sliderValue, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(source);
+        if (!double.IsFinite(sliderValue)) throw new ArgumentOutOfRangeException(nameof(sliderValue));
         sliderValue = Math.Clamp(sliderValue, 0, 100);
         if (sliderValue <= 0) return source.Clone();
         var luma = CreateLuminance(source, cancellationToken);
