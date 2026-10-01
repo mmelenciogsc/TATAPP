@@ -1,0 +1,406 @@
+{
+  "schema_version": 1,
+  "output": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "video_codec": "h264",
+    "video_profile": "High",
+    "video_level": 41,
+    "pixel_format": "yuv420p",
+    "color_space": "bt709",
+    "audio_codec": "aac",
+    "audio_sample_rate": 48000,
+    "audio_channels": 2,
+    "integrated_lufs": -16.0,
+    "integrated_lufs_tolerance": 0.5,
+    "true_peak_dbtp_max": -1.5,
+    "lra_lu_max": 7.0,
+    "fade_in_seconds": 0.8,
+    "fade_out_seconds": 2.5,
+    "phone": { "x": 1392, "y": 60, "width": 432, "height": 960 },
+    "magnifier": { "x": 620, "y": 230, "width": 720, "height": 720 }
+  },
+  "tools": {
+    "piper": "/usr/local/bin/piper",
+    "piper_sha256": "972211fb4cfb82407c495e2d83183b994d8fb9192808970b54f2a295d6b31b45",
+    "piper_model": "/home/marx/driveB/BLACKOUT/scripts/.cache/piper/en_US-amy-medium/en_US-amy-medium.onnx",
+    "piper_config": "/home/marx/driveB/BLACKOUT/scripts/.cache/piper/en_US-amy-medium/en_US-amy-medium.onnx.json",
+    "piper_model_sha256": "b3a6e47b57b8c7fbe6a0ce2518161a50f59a9cdd8a50835c02cb02bdd6206c18",
+    "piper_config_sha256": "95a23eb4d42909d38df73bb9ac7f45f597dbfcde2d1bf9526fdeaf5466977d77",
+    "font_regular": "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    "font_regular_sha256": "ae7b7855e115a5966d8b1b3f80f254ccc117ec86f9965e202ee2940453837280",
+    "font_bold": "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    "font_bold_sha256": "5c1247acef7f2b8522a31742c76d6adcb5569bacc0be7ceaa4dc39dd252ce895"
+  },
+  "sources": {
+    "start_screen": {
+      "path": "artifacts/android-walkthrough/screenshots/01-start-screen.png",
+      "sha256": "b704fd4d42945b510a1a3b20bf827e3aca04f68e07e8e63be4458b67aa2de2f5",
+      "state": "verified"
+    },
+    "wolf_original": {
+      "path": "artifacts/android-walkthrough/screenshots/02-wolf-original.png",
+      "sha256": "50905fa744368fe35660315a21e89dba5fdf8fa02018dea3334077644cfaf2c8",
+      "state": "verified"
+    },
+    "fine_outline": {
+      "path": "artifacts/android-walkthrough/screenshots/07-flat-fine-outline-preview.png",
+      "sha256": "98f7c155e9102bdf746a05980518fc34a6f2abb94eb92b30c9a5f464bdd9bf18",
+      "state": "verified"
+    },
+    "placement_controls": {
+      "path": "artifacts/android-walkthrough/screenshots/08-placement-full-color-controls.png",
+      "sha256": "6df716d5a414720cf4e2fe9e5b323f640d57ddab345011eee69eb3c5c46ed281",
+      "state": "verified"
+    },
+    "placement_preview": {
+      "path": "artifacts/android-walkthrough/screenshots/09-placement-full-color-preview.png",
+      "sha256": "ab408ba194aec1a61086ba3c2b575ae24ec7080a2b0c17b1c6a187f6e6b1c532",
+      "state": "verified"
+    },
+    "save_return": {
+      "path": "artifacts/android-walkthrough/screenshots/11-save-return.png",
+      "sha256": "657f2ed314b3ee26c762c75ef57d056a0f95e4d1916bc95dc99f1e321a337e94",
+      "state": "verified"
+    },
+    "controls_capture": {
+      "path": "artifacts/android-walkthrough/raw/01-talkback-controls-pass.mp4",
+      "sha256": "d19682def8e66a53b2d50ef1b6097929401efdc3d2be998e447cfc03f6735024",
+      "state": "verified"
+    },
+    "flat_capture": {
+      "path": "artifacts/android-walkthrough/raw/02-flat-stage-navigation-talkback.mp4",
+      "sha256": "032dc2342fb55358976f7afefdd8e1842f6ecfbff286b12756c43ac80171ea00",
+      "state": "verified"
+    },
+    "anatomy_08_12_capture": {
+      "path": "artifacts/android-walkthrough/raw/03-anatomical-stages-08-to-12.mp4",
+      "sha256": "aaf8e8c41aa3242352269cd9703ade7973baac3e937ef31c267349969d572460",
+      "state": "verified"
+    },
+    "anatomy_12_16_capture": {
+      "path": "artifacts/android-walkthrough/raw/04-anatomical-stages-12-to-16-talkback.mp4",
+      "sha256": "06c7ad8fa9c46cd09bd0a7bd9b3488de2f3ab293aeacdece9c1cdca9f580dac8",
+      "state": "verified"
+    },
+    "save_capture": {
+      "path": "artifacts/android-walkthrough/raw/05-save-current-look-talkback.mp4",
+      "sha256": "9a051fcbc871c21f494b3f06c1bcf441d864ff62846e7c08749ab42125eee7d0",
+      "state": "verified"
+    },
+    "ai_preprocessing_capture": {
+      "path": "artifacts/android-walkthrough/raw/06-offline-ai-preprocessing-heartbeat.mp4",
+      "sha256": "1807bdd0e5a804dc2885e31e2efe5e774497b3bc0fafdc35b5e60f7b021dd34c",
+      "state": "preprocessing_only_not_ready"
+    },
+    "ai_ready_capture": {
+      "path": "artifacts/android-walkthrough/raw/07-offline-ai-ready-talkback.mp4",
+      "sha256": "e6e4095c799129eccc07ea3e36166605e4c6af39882ef5d74ad533fb02aa9eb1",
+      "state": "verified"
+    },
+    "wolf_clean_01_15_capture": {
+      "path": "artifacts/android-walkthrough/raw/09-clean-stages-01-to-15.mp4",
+      "sha256": "2875de78892cf0f77d2c430603287a146025c49f4b78564d182fc053cd2c8551",
+      "state": "verified"
+    },
+    "wolf_clean_16_capture": {
+      "path": "artifacts/android-walkthrough/raw/10-clean-stage-16.mp4",
+      "sha256": "01a892134b7ea73f0ad341f73c84c49fee3f34aa33fff710c1a611f122492011",
+      "state": "verified"
+    },
+    "clock_config_capture": {
+      "path": "artifacts/android-walkthrough/raw/11-clock-import-configuration.mp4",
+      "sha256": "713d67f27d818ae2f3c63dcee4f445a506febfbeefb828e38c4abd1fbae340cf",
+      "state": "verified"
+    },
+    "clock_flat_capture": {
+      "path": "artifacts/android-walkthrough/raw/11b-clock-flat-stages.mp4",
+      "sha256": "57731b6903d07d906f095d97d481f76ff2e6689adede24e0ef5f01704413ff1a",
+      "state": "verified"
+    },
+    "clock_anatomy_capture": {
+      "path": "artifacts/android-walkthrough/raw/12-clock-anatomical-stages.mp4",
+      "sha256": "19577cca96f04dd19550ce4557502840cad6cc9191db96a82043eea0431e9587",
+      "state": "verified"
+    },
+    "sugar_import_capture": {
+      "path": "artifacts/android-walkthrough/raw/13-sugar-import.mp4",
+      "sha256": "eaf2e8c3657c16404c7489102945cb647bc7955817d576667a2e52d0c3a7d9fc",
+      "state": "verified"
+    },
+    "sugar_stages_capture": {
+      "path": "artifacts/android-walkthrough/raw/14-sugar-stages.mp4",
+      "sha256": "af95f116c40fa22252c879ccdb55e6acf9090667c576b57e6de08d407d70a53e",
+      "state": "verified"
+    },
+    "sugar_save_capture": {
+      "path": "artifacts/android-walkthrough/raw/15-sugar-save-talkback.mp4",
+      "sha256": "af553bcddee8510c1e5b72721ec345c2381ac630a425b17e326ad02b54eba799",
+      "state": "verified"
+    },
+    "sugar_stage16_preview": {
+      "path": "artifacts/android-walkthrough/screenshots/16-sugar-stage16-preview.png",
+      "sha256": "1d6f24aaef6149e70b61ec0455899bd3de58d8e0c0e641d8a7f3cc014725e14b",
+      "state": "verified"
+    },
+    "sugar_export": {
+      "path": "artifacts/android-walkthrough/raw/exported-sugar-stage-16-full-color.jpg",
+      "sha256": "d4164031b783e778bd6c09504bb7413ddfbfb7a2b8a35d65efc7e665ae87be30",
+      "dimensions": [990, 1097],
+      "state": "verified"
+    },
+    "black_widow_default_browser_capture": {
+      "path": "artifacts/android-walkthrough/raw/19-black-widow-default-browser-redacted.mp4",
+      "sha256": "cd5be477fed6890d6d8913167407c079fd52fe97089b2f388e4eb3aea28b1f04",
+      "derived_from_sha256": "b5d810e4c493c040b5fd569f968758a350d7e53a5518bd8481893f1332b54d92",
+      "redaction": "Opaque source-space box x=40,y=1050,w=1000,h=320 applied before walkthrough composition",
+      "state": "verified"
+    },
+    "clock_design": {
+      "path": "artifacts/android-walkthrough/assets/time-is-running-out.jpg",
+      "sha256": "693c490037494431906b93f3ab36f0c3cc9c5cb7cea8b1172f9fabb4443cd5de",
+      "dimensions": [742, 1024],
+      "state": "verified"
+    },
+    "sugar_design": {
+      "path": "artifacts/android-walkthrough/assets/sugar-skull-coloured.jpg",
+      "sha256": "5943dc10479f9d30db477f153affc1a55a1ad4293570a658273f251fb0c9ba54",
+      "dimensions": [832, 1024],
+      "state": "verified"
+    },
+    "music": {
+      "path": "artifacts/android-walkthrough/assets/78-pulse.mp3",
+      "sha256": "22200d7889174f166a5b08fe45577280103541ced3fb8c4c2d06245fdd1e02af",
+      "state": "verified"
+    }
+  },
+  "segments": [
+    {
+      "id": "intro",
+      "kind": "still",
+      "source": "start_screen",
+      "duration": 9.0,
+      "header": "TATAPP FOR ANDROID",
+      "subheader": "Three real designs · sixteen stages · TalkBack and touch",
+      "crop": [0, 0, 1080, 1080],
+      "narration": "Tat App presents three real designs through sixteen stages, with native Android touch and TalkBack controls."
+    },
+    {
+      "id": "controls",
+      "kind": "capture",
+      "source": "controls_capture",
+      "source_start": 0.0,
+      "duration": 16.0,
+      "header": "NATIVE ACCESSIBLE CONTROLS",
+      "subheader": "Real TalkBack traversal and explicit model-consent cancellation",
+      "crop": [0, 0, 1080, 1080],
+      "retain_source_audio": true
+    },
+    {
+      "id": "wolf_intro",
+      "kind": "still",
+      "source": "wolf_original",
+      "duration": 7.0,
+      "header": "DESIGN ONE — WOLF",
+      "subheader": "Wolf Head Painting · AlepouTheFox · CC BY-SA 3.0",
+      "crop": [0, 320, 1080, 1080],
+      "narration": "First is the licensed wolf, shown from original color to full-color placement."
+    },
+    {
+      "id": "wolf_stages_01_15",
+      "kind": "capture",
+      "source": "wolf_clean_01_15_capture",
+      "source_start": 0.0,
+      "duration": 56.0,
+      "playback_rate": 3.1,
+      "header": "WOLF — STAGES 1 TO 15",
+      "subheader": "Accelerated real capture · exact stage names and values remain visible",
+      "crop": [0, 920, 1080, 1080]
+    },
+    {
+      "id": "wolf_stage_16",
+      "kind": "capture",
+      "source": "wolf_clean_16_capture",
+      "source_start": 0.0,
+      "duration": 14.0,
+      "header": "WOLF — STAGE 16",
+      "subheader": "Placement — full color on the selected anatomical surface",
+      "crop": [0, 0, 1080, 1080]
+    },
+    {
+      "id": "clock_intro",
+      "kind": "capture",
+      "source": "clock_config_capture",
+      "magnifier_source": "clock_design",
+      "source_start": 0.0,
+      "duration": 7.0,
+      "header": "DESIGN TWO — CLOCK",
+      "subheader": "time is running out · __april · CC BY 2.0",
+      "crop": [0, 0, 742, 1024],
+      "narration": "Second is the licensed clock design, imported into the same workflow."
+    },
+    {
+      "id": "clock_configuration",
+      "kind": "capture",
+      "source": "clock_config_capture",
+      "source_start": 7.0,
+      "duration": 12.0,
+      "header": "CLOCK — CONFIGURATION",
+      "subheader": "Real Poco capture of body, size, complexion, and stage controls",
+      "crop": [0, 0, 1080, 1080]
+    },
+    {
+      "id": "clock_flat_stages",
+      "kind": "capture",
+      "source": "clock_flat_capture",
+      "source_start": 0.0,
+      "duration": 20.0,
+      "playback_rate": 2.45,
+      "header": "CLOCK — FLAT STAGES",
+      "subheader": "Accelerated real capture through the flat-development sequence",
+      "crop": [0, 900, 1080, 1080]
+    },
+    {
+      "id": "clock_anatomical_stages",
+      "kind": "capture",
+      "source": "clock_anatomy_capture",
+      "source_start": 0.0,
+      "duration": 18.0,
+      "playback_rate": 1.65,
+      "header": "CLOCK — ANATOMICAL STAGES",
+      "subheader": "Female body · upper-left chest · 168 centimeters",
+      "crop": [0, 0, 1080, 1080]
+    },
+    {
+      "id": "sugar_intro",
+      "kind": "still",
+      "source": "sugar_stage16_preview",
+      "magnifier_source": "sugar_design",
+      "duration": 7.0,
+      "header": "DESIGN THREE — SUGAR SKULL",
+      "subheader": "Sugar Skull - Coloured · __april · CC BY 2.0",
+      "crop": [0, 0, 832, 1024],
+      "narration": "Third is the licensed sugar skull, selected with Android's system picker."
+    },
+    {
+      "id": "sugar_import",
+      "kind": "capture",
+      "source": "sugar_import_capture",
+      "source_start": 65.0,
+      "duration": 16.0,
+      "playback_rate": 2.0,
+      "header": "SUGAR SKULL — SYSTEM PICKER",
+      "subheader": "Deliberate Select photo activation and Android document selection",
+      "crop": [0, 0, 1080, 1080]
+    },
+    {
+      "id": "sugar_stages",
+      "kind": "capture",
+      "source": "sugar_stages_capture",
+      "source_start": 0.0,
+      "duration": 25.0,
+      "playback_rate": 1.7,
+      "header": "SUGAR SKULL — STAGES",
+      "subheader": "Original, stencil, outlines, placement, and full color",
+      "crop": [0, 820, 1080, 1080]
+    },
+    {
+      "id": "save_intro",
+      "kind": "still",
+      "source": "sugar_stage16_preview",
+      "duration": 8.0,
+      "header": "SAVE THE VISIBLE SUGAR STAGE",
+      "subheader": "A new JPEG; the imported source is never overwritten",
+      "crop": [0, 120, 1080, 1080],
+      "narration": "Save creates a new sugar-skull document without overwriting the imported source."
+    },
+    {
+      "id": "sugar_save",
+      "kind": "capture",
+      "source": "sugar_save_capture",
+      "source_start": 0.0,
+      "duration": 58.0,
+      "header": "SUGAR SKULL — SYSTEM DOCUMENT SAVE",
+      "subheader": "Real TalkBack/system audio and return to the preserved workspace",
+      "crop": [0, 0, 1080, 1080],
+      "retain_source_audio": true
+    },
+    {
+      "id": "sugar_export",
+      "kind": "still",
+      "source": "sugar_stage16_preview",
+      "magnifier_source": "sugar_export",
+      "duration": 8.0,
+      "header": "ACTUAL EXPORTED JPEG",
+      "subheader": "Checksum-locked Stage 16 sugar-skull output",
+      "crop": [0, 250, 500, 847],
+      "srt": {
+        "start_offset": 0.2,
+        "end_offset": 7.8,
+        "text": "The saved JPEG shows the sugar skull wrapped along the selected left upper arm inside a purple region outline."
+      }
+    },
+    {
+      "id": "ai_boundary",
+      "kind": "still",
+      "source": "placement_controls",
+      "duration": 9.0,
+      "header": "OFFLINE AI — VERIFIED BOUNDARY",
+      "subheader": "Qwen3-VL 2B Instruct · consent · disabled-radio evidence",
+      "crop": [0, 1020, 1080, 1080],
+      "narration": "Qwen three V L two B runs locally on the Poco after consent."
+    },
+    {
+      "id": "ai_ready",
+      "kind": "capture",
+      "source": "ai_ready_capture",
+      "source_start": 20.0,
+      "duration": 25.0,
+      "header": "OFFLINE AI PRELOAD TO READY",
+      "subheader": "Real heartbeat, 16-of-16 completion, and cached description",
+      "crop": [0, 1200, 1080, 1080],
+      "retain_source_audio": true,
+      "claim": "offline_ai_ready"
+    },
+    {
+      "id": "black_widow_default_browser",
+      "kind": "capture",
+      "source": "black_widow_default_browser_capture",
+      "source_start": 0.0,
+      "duration": 15.2,
+      "header": "BLACK WIDOW TATTOO",
+      "subheader": "Default-browser handoff · personal account line redacted",
+      "crop": [0, 0, 1080, 1080],
+      "srt": {
+        "start_offset": 0.2,
+        "end_offset": 15.0,
+        "text": "Tat App sends the exact HTTPS address to Chrome, the configured default browser. Chrome then hands this Facebook link to the installed Facebook app, where the correct BW tattoo page is visible. A personal account line is redacted."
+      }
+    },
+    {
+      "id": "summary",
+      "kind": "still",
+      "source": "sugar_stage16_preview",
+      "duration": 7.0,
+      "header": "THREE DESIGNS · ONE WORKFLOW",
+      "subheader": "Wolf · clock · sugar skull · exact current-stage export",
+      "crop": [0, 120, 1080, 1080],
+      "srt": {
+        "start_offset": 0.2,
+        "end_offset": 6.8,
+        "text": "All three licensed designs use the same sixteen-stage, anatomical-placement, accessibility, and non-destructive export workflow."
+      }
+    },
+    {
+      "id": "credits",
+      "kind": "still",
+      "source": "sugar_stage16_preview",
+      "duration": 12.0,
+      "header": "TATAPP FOR ANDROID",
+      "subheader": "Wolf — AlepouTheFox, CC BY-SA 3.0\nClock and sugar skull — __april, CC BY 2.0\nMusic: 78 PULSE — kjartan_abel, CC BY 4.0",
+      "crop": [0, 120, 1080, 1080],
+      "narration": "Tat App keeps editing on-device. License, capture, and evidence details are recorded in the manifests."
+    }
+  ]
+}

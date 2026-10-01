@@ -1,0 +1,142 @@
+{
+  "schema_version": 1,
+  "release_state": "template_not_verified",
+  "capture": {
+    "date": "2026-10-01",
+    "device": "Poco F7 Ultra 24122RKC7G",
+    "android": "Android 16 / API 36",
+    "display": "1080x2400",
+    "build_fingerprint": "POCO/miro_global/miro:16/BP2A.250605.031.A3/OS3.0.302.0.WOMMIXM:user/release-keys",
+    "talkback_version": "17.0.1.926549743 (version code 60215178)",
+    "recorder_name_version": "MIUI Screen Recorder 4.15.3.5.0 (version code 41503050)"
+  },
+  "application": {
+    "package": "com.grayscaleconsultants.tatapp",
+    "version_name": "0.3.0",
+    "version_code": 1,
+    "installed_apk_sha256": "7c491d95fd690842ed662fef4a10674276636fcd0fd809b2b157f1f8125138d7",
+    "signing_certificate_sha256": "eac3df9aba3e08437bc988682566f072e52d2dde6bda373daa998cdee74d9f90"
+  },
+  "offline_ai": {
+    "model": "Qwen3-VL 2B Instruct",
+    "preprocessing_clip_state": "captured_but_not_ready",
+    "ready_clip_state": "verified",
+    "ready_clip_path": "artifacts/android-walkthrough/raw/07-offline-ai-ready-talkback.mp4",
+    "ready_clip_sha256": "e6e4095c799129eccc07ea3e36166605e4c6af39882ef5d74ad533fb02aa9eb1",
+    "full_preload_claim_allowed": true,
+    "claim_scope": "Real-device capture shows the app heartbeat stopping, the 16-of-16 ready status, and an available cached description. It does not claim model-session runtime reuse or infer network state from video pixels.",
+    "ui_evidence": [
+      {
+        "path": "artifacts/android-walkthrough/reports/12-ai-offline-progress-uiautomator.xml",
+        "sha256": "d83e8ddea8cc7495393abb781626be6e8c7c4814b0de7dcb1381de0ec9f08f3b"
+      },
+      {
+        "path": "artifacts/android-walkthrough/reports/13-ai-offline-ready-uiautomator.xml",
+        "sha256": "d671ef8439b5ca296a2ea2a78d575836323a303826847e8a251acb6403ce3a32"
+      },
+      {
+        "path": "artifacts/android-walkthrough/reports/14-ai-offline-ready-status-uiautomator.xml",
+        "sha256": "9328091f4b8390739129b6cf8773a11cbc8ebcd7f3bf1a04e689af6c03b85839"
+      },
+      {
+        "path": "artifacts/android-walkthrough/reports/15-ai-stage-01-uiautomator.xml",
+        "sha256": "f83a81e863ff647731b25b3602251ac1b746c010984f94ded42eec377b371e67"
+      },
+      {
+        "path": "artifacts/android-walkthrough/reports/16-ai-stage-08-uiautomator.xml",
+        "sha256": "40e03466c304ecf9670d8f250dd86cf764de957edc48b897407600eef38c91de"
+      },
+      {
+        "path": "artifacts/android-walkthrough/reports/17-ai-stage-09-uiautomator.xml",
+        "sha256": "188bf6562218a7c672fcee11fbfdaa19255b27b100162c318f8148aa8259892d"
+      }
+    ],
+    "network_isolation_evidence": {
+      "state": "verified_during_capture",
+      "wifi_state": 0,
+      "mobile_data_connection_state": 0,
+      "path": "artifacts/android-walkthrough/reports/AI-OFFLINE-NETWORK-EVIDENCE.md",
+      "sha256": "17a4ed4723940412e14ddabb3a6f667ff5778d000c505dd9bc1ce749d8d15dbb",
+      "note": "Network isolation is established by host/device-state evidence, never by pixels in the MP4."
+    }
+  },
+  "workflow_evidence": [
+    {
+      "label": "Clock configured at Stage 16",
+      "path": "artifacts/android-walkthrough/reports/19-clock-configured-stage16-uiautomator.xml",
+      "sha256": "b9305cccd2dac5f07f4f3187b5b8ccb00eab5a1a03174fef4ffb4503d254ae93"
+    },
+    {
+      "label": "Sugar skull defaults at Stage 16",
+      "path": "artifacts/android-walkthrough/reports/20-sugar-defaults-stage16-uiautomator.xml",
+      "sha256": "6c1b17da834911f43d275f0258352903fa815ecf54785e46a178ed895cc0aeb2"
+    },
+    {
+      "label": "Sugar skull preview",
+      "path": "artifacts/android-walkthrough/reports/21-sugar-stage16-preview-uiautomator.xml",
+      "sha256": "4b1950baf8b54b7c04168d29d3dbffa418da238916c35d4ddbccae20ac95b71b"
+    },
+    {
+      "label": "Sugar skull anatomical placement",
+      "path": "artifacts/android-walkthrough/reports/22-sugar-anatomy-stage16-uiautomator.xml",
+      "sha256": "579be662e8dafb5e7867f21b3bf50c063a74a062f4bc576ce54be86688e03692"
+    },
+    {
+      "label": "Sugar skull save return",
+      "path": "artifacts/android-walkthrough/reports/23-sugar-save-return-uiautomator.xml",
+      "sha256": "6128e16d8e4d1650f9fce22ee15fd257cac747bb2904392991df4401033ee86e"
+    },
+    {
+      "label": "Actual exported sugar skull Stage 16 JPEG",
+      "path": "artifacts/android-walkthrough/raw/exported-sugar-stage-16-full-color.jpg",
+      "sha256": "d4164031b783e778bd6c09504bb7413ddfbfb7a2b8a35d65efc7e665ae87be30"
+    },
+    {
+      "label": "Default-browser package-targeted launch log",
+      "path": "artifacts/android-walkthrough/reports/26-black-widow-default-browser-logcat.txt",
+      "sha256": "090f09def7508dcca80c0664aec9864d3dc9345b93f9cbed4098b8fd1b5a981f"
+    },
+    {
+      "label": "Privacy-redacted default-browser capture",
+      "path": "artifacts/android-walkthrough/raw/19-black-widow-default-browser-redacted.mp4",
+      "sha256": "cd5be477fed6890d6d8913167407c079fd52fe97089b2f388e4eb3aea28b1f04",
+      "derived_from_sha256": "b5d810e4c493c040b5fd569f968758a350d7e53a5518bd8481893f1332b54d92",
+      "derivation": "FFmpeg opaque drawbox x=40:y=1050:w=1000:h=320 in 1080x2400 source space before walkthrough split/composition; audio, subtitle, and data streams omitted"
+    }
+  ],
+  "render": {
+    "timeline": "media/android-walkthrough/timeline.template.json",
+    "attribution": "media/android-walkthrough/attribution.template.json",
+    "manifest_template": "media/android-walkthrough/final-media-manifest.template.json",
+    "renderer": "scripts/render-android-walkthrough.py",
+    "verifier": "scripts/verify-android-walkthrough.py",
+    "ffmpeg_version": null,
+    "piper_sha256": null,
+    "timeline_template_sha256": null,
+    "attribution_template_sha256": null,
+    "manifest_template_sha256": null,
+    "renderer_sha256": null,
+    "verifier_sha256": null
+  },
+  "outputs": {
+    "mp4": null,
+    "mp4_bytes": null,
+    "mp4_sha256": null,
+    "srt": null,
+    "srt_sha256": null,
+    "duration_seconds": null,
+    "frame_count": null,
+    "integrated_lufs": null,
+    "true_peak_dbtp": null,
+    "lra_lu": null
+  },
+  "human_verification": {
+    "complete_visual_watch": false,
+    "speaker_and_headphone_listen": false,
+    "talkback_srt_workflow": false,
+    "speech_and_music_balance": false,
+    "stage_and_export_fidelity": false,
+    "privacy_review": false,
+    "notes": "No human check may be marked true by the render or verifier scripts."
+  }
+}

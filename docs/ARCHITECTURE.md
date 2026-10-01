@@ -144,9 +144,25 @@ offline original-stage inference over a synthetic 192-pixel black-ring image
 on an API 36 x86_64 emulator with 16 KiB pages. The roughly eight-minute smoke
 peaked near 2.17 GB PSS, released inference memory afterward, and produced a
 nonempty description without OOM or crash. This justifies the catalog's tested
-flag for that narrow profile; it does not establish ARM64, full-batch, quality,
-thermal, repeated-workflow, physical-device, or assistive-technology results.
-Exact artifact sizes, SHA-256 values, URLs, and thresholds are in `ANDROID.md`.
+flag for that narrow profile.
+
+A later API 36 ARM64 Poco run installed and checksum-verified the exact catalog
+model and projector, then completed the production UI's sequential 16-stage
+preload. Both radios were disabled from stage 6 through completion. The UI kept
+stage controls disabled during processing, published the all-stages-ready state,
+stopped the heartbeat, and made cached descriptions available at stages 1, 8,
+9, and 16 without OOM. PSS decreased from approximately 2.4 GB during active
+inference to approximately 302 MB after the model session was disposed. The
+Machine Perception Node could not be reused: its inference service and model
+files are private/non-exported and its package has a different signer. TATAPP
+therefore performed the entire run locally in its own process with its
+LLamaSharp/llama.cpp CPU runtime; it did not bypass Android package isolation.
+
+That run establishes one ARM64 full-batch execution, not broad description
+quality, thermal/endurance, repeated-workflow, cancellation/recreation, or
+assistive-technology results. The anatomical-stage prose observed in the run
+was weak, and no human listener completed the full TalkBack script. Exact
+artifact sizes, SHA-256 values, URLs, and thresholds are in `ANDROID.md`.
 
 For any eligible tested catalog entry, installation is explicit and resumable over
 HTTPS. Partial files remain under an app-private staging directory. Length and
@@ -174,8 +190,17 @@ so no camera or broad storage permission is needed. There is no analytics,
 advertising, cloud image inference, or ordinary-editing network dependency.
 
 BLACK WIDOW TATTOO stores one HTTPS destination in shared product metadata.
-Windows uses shell navigation and Android sends an `ACTION_VIEW` browsable
-intent. Neither path opens on focus, authenticates, or transmits a photo.
+Windows uses shell navigation. On API 29+, Android first checks availability of
+the system browser role; the public app API does not disclose another app's
+role-holder package, so the holder is resolved through a neutral-domain HTTPS
+intent with `MATCH_DEFAULT_ONLY`. API 26–28 uses the same neutral resolution.
+The system resolver is rejected, and the final browsable `ACTION_VIEW` is
+package-targeted to the resolved browser, preventing Android's initial resolver
+from substituting a destination-specific handler. The browser can still apply
+its own verified-link or native-app handoff policy afterward. If no default
+browser is configured, Android reports a recoverable error instead of launching
+an arbitrary handler. Neither path opens on focus, authenticates, or transmits
+a photo.
 
 ## Build and supply-chain boundary
 

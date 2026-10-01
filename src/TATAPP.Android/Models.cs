@@ -23,8 +23,3 @@ internal readonly record struct ExportSnapshot(
     AnatomicalWorkflowState Anatomy,
     double AnatomyFocusProgress,
     string? AnatomicalSnapshotPath);
-
-internal static class ProductLinks
-{
-    public const string BlackWidowTattoo = "https://www.facebook.com/grayscaleconsultants";
-}

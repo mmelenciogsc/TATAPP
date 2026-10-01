@@ -62,15 +62,29 @@ export ANDROID_HOME="$android_sdk"
 export ANDROID_SDK_ROOT="$android_sdk"
 export JAVA_HOME="$java_home"
 export TATAPP_LLAMA_NATIVE_DIR="$native_root"
+export TATAPP_ANDROID_KEYSTORE_PASSWORD TATAPP_ANDROID_KEY_PASSWORD
 
 mkdir -p "$artifact_root"
+artifact_root="$(cd -- "$artifact_root" && pwd -P)"
 staging="$(mktemp -d "$artifact_root/.publish.XXXXXX")"
 trap 'rm -rf -- "$staging"' EXIT
+build_root="$staging/dotnet-artifacts"
+publish_root="$staging/publish"
+expected_certificate="$staging/expected-signing-certificate.der"
+
+"$java_home/bin/keytool" -exportcert \
+    -keystore "$TATAPP_ANDROID_KEYSTORE" \
+    -alias "$TATAPP_ANDROID_KEY_ALIAS" \
+    -storepass:env TATAPP_ANDROID_KEYSTORE_PASSWORD \
+    -file "$expected_certificate" >/dev/null
+expected_signer_sha256="$(sha256sum "$expected_certificate" | awk '{ print $1 }')"
 
 "$dotnet_bin" restore "$project" \
+    --artifacts-path "$build_root" \
     -p:AndroidSdkDirectory="$android_sdk" -p:JavaSdkDirectory="$java_home"
 "$dotnet_bin" publish "$project" --configuration Release \
-    --framework net10.0-android36.0 --no-restore --output "$staging" \
+    --framework net10.0-android36.0 --no-restore \
+    --artifacts-path "$build_root" --output "$publish_root" \
     -p:AndroidSdkDirectory="$android_sdk" -p:JavaSdkDirectory="$java_home" \
     -p:AndroidKeyStore=true \
     -p:AndroidSigningKeyStore="$TATAPP_ANDROID_KEYSTORE" \
@@ -78,12 +92,21 @@ trap 'rm -rf -- "$staging"' EXIT
     -p:AndroidSigningStorePass=env:TATAPP_ANDROID_KEYSTORE_PASSWORD \
     -p:AndroidSigningKeyPass=env:TATAPP_ANDROID_KEY_PASSWORD
 
-signed_apk="$staging/$TATAPP_ANDROID_PACKAGE_ID-Signed.apk"
+signed_apk="$publish_root/$TATAPP_ANDROID_PACKAGE_ID-Signed.apk"
 [[ -f "$signed_apk" ]] || { printf 'Signed APK was not produced at %s\n' "$signed_apk" >&2; exit 1; }
-ANDROID_SDK_ROOT="$android_sdk" "$script_dir/android/verify-apk.sh" "$signed_apk"
-install -m 0644 "$signed_apk" "$output_apk"
-(
-    cd -- "$artifact_root"
-    sha256sum "$(basename -- "$output_apk")" > "$(basename -- "$output_apk").sha256"
-)
+ANDROID_SDK_ROOT="$android_sdk" EXPECTED_SIGNER_SHA256="$expected_signer_sha256" \
+    "$script_dir/android/verify-apk.sh" "$signed_apk"
+
+output_apk="$artifact_root/$TATAPP_ANDROID_ARTIFACT_BASENAME"
+promotion_apk="$staging/$TATAPP_ANDROID_ARTIFACT_BASENAME"
+promotion_checksum="$staging/$TATAPP_ANDROID_ARTIFACT_BASENAME.sha256"
+install -m 0644 "$signed_apk" "$promotion_apk"
+cmp -s "$signed_apk" "$promotion_apk" || {
+    printf 'Staged APK changed while preparing it for promotion.\n' >&2
+    exit 1
+}
+output_sha256="$(sha256sum "$promotion_apk" | awk '{ print $1 }')"
+printf '%s  %s\n' "$output_sha256" "$TATAPP_ANDROID_ARTIFACT_BASENAME" > "$promotion_checksum"
+mv -f -- "$promotion_apk" "$output_apk"
+mv -f -- "$promotion_checksum" "$output_apk.sha256"
 printf 'Published signed evaluation APK: %s\nChecksum: %s.sha256\n' "$output_apk" "$output_apk"

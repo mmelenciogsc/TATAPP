@@ -9,4 +9,5 @@ obj/
 artifacts/
 /.android-native-cache/
 TestResults/
+__pycache__/
 /reqs_FacebookPost.txt

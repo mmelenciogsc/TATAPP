@@ -3,8 +3,11 @@ package com.grayscaleconsultants.tatapp.instrumentation;
 import android.app.Activity;
 import android.app.Application;
 import android.app.Instrumentation;
+import android.app.role.RoleManager;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -14,6 +17,7 @@ import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.drawable.BitmapDrawable;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.provider.OpenableColumns;
@@ -610,6 +614,9 @@ public final class TatappInstrumentation extends Instrumentation {
     }
 
     private void testBlackWidowActivation() throws Exception {
+        String expectedBrowserPackage = resolveDefaultBrowserPackage();
+        require(expectedBrowserPackage != null,
+                "The test target has a configured default web browser.");
         RecordingActivityMonitor monitor = new RecordingActivityMonitor(Intent.ACTION_VIEW,
                 new ActivityResult(Activity.RESULT_CANCELED, null));
         addMonitor(monitor);
@@ -627,12 +634,40 @@ public final class TatappInstrumentation extends Instrumentation {
                     "Deliberate activation emits an external view intent.");
             Intent captured = monitor.capturedIntent();
             require(Intent.ACTION_VIEW.equals(captured.getAction()) &&
-                            "https://www.facebook.com/grayscaleconsultants".equals(String.valueOf(captured.getData())) &&
-                            captured.hasCategory(Intent.CATEGORY_BROWSABLE),
-                    "External activation is browsable and uses the exact repository URL.");
+                            "https://www.facebook.com/profile.php?id=61583807836781&sk=directory_contact_info".equals(String.valueOf(captured.getData())) &&
+                            captured.hasCategory(Intent.CATEGORY_BROWSABLE) &&
+                            expectedBrowserPackage.equals(captured.getPackage()),
+                    "External activation targets the configured default browser with the exact repository URL.");
         } finally {
             removeMonitor(monitor);
         }
+    }
+
+    private String resolveDefaultBrowserPackage() {
+        if (Build.VERSION.SDK_INT >= 29) {
+            RoleManager roleManager = (RoleManager) activity.getSystemService(Activity.ROLE_SERVICE);
+            if (roleManager == null || !roleManager.isRoleAvailable(RoleManager.ROLE_BROWSER)) {
+                return null;
+            }
+        }
+        Intent probe = new Intent(Intent.ACTION_VIEW, Uri.parse("https://www.example.com/"));
+        probe.addCategory(Intent.CATEGORY_BROWSABLE);
+        PackageManager packageManager = activity.getPackageManager();
+        ResolveInfo resolved = packageManager.resolveActivity(probe, PackageManager.MATCH_DEFAULT_ONLY);
+        ActivityInfo resolvedActivity = resolved == null ? null : resolved.activityInfo;
+        if (resolvedActivity == null || resolvedActivity.packageName == null || resolvedActivity.name == null) {
+            return null;
+        }
+        for (ResolveInfo candidate : packageManager.queryIntentActivities(
+                probe, PackageManager.MATCH_DEFAULT_ONLY)) {
+            ActivityInfo candidateActivity = candidate.activityInfo;
+            if (candidateActivity != null &&
+                    resolvedActivity.packageName.equals(candidateActivity.packageName) &&
+                    resolvedActivity.name.equals(candidateActivity.name)) {
+                return resolvedActivity.packageName;
+            }
+        }
+        return null;
     }
 
     private void testLowMemoryRecovery() throws Exception {

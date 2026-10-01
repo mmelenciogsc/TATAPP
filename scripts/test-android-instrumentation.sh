@@ -50,6 +50,9 @@ export ANDROID_SDK_ROOT="$android_sdk"
 export JAVA_HOME="$java_home"
 
 app_project="$repo_root/src/TATAPP.Android/TATAPP.Android.csproj"
+default_app_apk="$repo_root/src/TATAPP.Android/bin/Release/net10.0-android36.0/$app_rid/com.grayscaleconsultants.tatapp-Signed.apk"
+app_apk_override=${ANDROID_APP_APK:-}
+app_apk=${app_apk_override:-$default_app_apk}
 test_root="$repo_root/tests/TATAPP.Android.Instrumentation"
 test_build="$test_root/obj/Release/native"
 test_bin="$test_root/bin/Release"
@@ -63,11 +66,20 @@ key_password=${ANDROID_TEST_KEY_PASSWORD:-$ANDROID_TEST_KEYSTORE_PASSWORD}
 export ANDROID_TEST_KEY_PASSWORD="$key_password"
 [[ -f "$keystore" ]] || { printf 'External test keystore not found: %s\n' "$keystore" >&2; exit 2; }
 
-if [[ "${ANDROID_SKIP_APP_BUILD:-0}" != "1" ]]; then
+if [[ -z "$app_apk_override" && "${ANDROID_SKIP_APP_BUILD:-0}" != "1" ]]; then
   "$dotnet_bin" restore "$app_project" \
     -p:AndroidSdkDirectory="$android_sdk" -p:JavaSdkDirectory="$java_home"
   "$dotnet_bin" build "$app_project" -c Release -f net10.0-android36.0 -r "$app_rid" --no-restore \
     -p:AndroidSdkDirectory="$android_sdk" -p:JavaSdkDirectory="$java_home"
+fi
+
+if [[ ! -f "$app_apk" ]]; then
+  printf 'Expected app APK was not found: %s\n' "$app_apk" >&2
+  exit 1
+fi
+if [[ -n "$app_apk_override" ]]; then
+  printf 'Using explicit prebuilt app APK without rebuilding it: %s\n' "$app_apk"
+  ANDROID_SDK_ROOT="$android_sdk" "$repo_root/scripts/android/verify-apk.sh" "$app_apk"
 fi
 
 rm -rf "$test_build" "$test_bin"
@@ -89,13 +101,7 @@ mapfile -d '' class_files < <(find "$test_build/classes" -type f -name '*.class'
   --out "$test_bin/com.grayscaleconsultants.tatapp.instrumentation.apk" "$test_build/test-unsigned.apk"
 "$build_tools/apksigner" verify --verbose "$test_bin/com.grayscaleconsultants.tatapp.instrumentation.apk"
 
-app_apk="$repo_root/src/TATAPP.Android/bin/Release/net10.0-android36.0/$app_rid/com.grayscaleconsultants.tatapp-Signed.apk"
 test_apk="$test_bin/com.grayscaleconsultants.tatapp.instrumentation.apk"
-
-if [[ ! -f "$app_apk" ]]; then
-  printf 'Expected app APK was not produced: %s\n' "$app_apk" >&2
-  exit 1
-fi
 
 # Incremental installs can SIGBUS in the Android linker on 16 KB-page
 # emulators while a mapped native library is still backed by incfs.
@@ -127,6 +133,14 @@ rg -Uq '(?s)public void LaunchPhotoPicker\(Activity activity, int requestCode\).
 rg -Uq '(?s)public void LaunchCamera\(Activity activity, Uri output, int requestCode\).*?activity\.StartActivityForResult\(intent, requestCode\);' \
   "$repo_root/src/TATAPP.Android/AndroidPlatformServices.cs"
 rg -q 'AddTransient<OfflineAiService>' "$repo_root/src/TATAPP.Android/TatappApplication.cs"
+rg -q 'RoleManager.RoleBrowser' "$repo_root/src/TATAPP.Android/AndroidPlatformServices.cs"
+rg -q 'BrowserProbeUrl = "https://www.example.com/"' "$repo_root/src/TATAPP.Android/AndroidPlatformServices.cs"
+rg -q 'intent.SetPackage(browserPackage)' "$repo_root/src/TATAPP.Android/AndroidPlatformServices.cs"
+rg -q 'No default web browser is configured' "$repo_root/src/TATAPP.Android/AndroidPlatformServices.cs"
+if rg -q 'com[.]android[.]chrome' "$repo_root/src/TATAPP.Android/AndroidPlatformServices.cs"; then
+  printf 'The external-link launcher must not hardcode a browser package.\n' >&2
+  exit 1
+fi
 if rg -q 'AddSingleton<OfflineAiService>' "$repo_root/src/TATAPP.Android/TatappApplication.cs"; then
   printf 'OfflineAiService must be Activity-owned, not a process-lifetime singleton.\n' >&2
   exit 1

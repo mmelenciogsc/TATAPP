@@ -133,7 +133,8 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
         takeButton = ActionButton("Take photo", "Opens the system camera without granting TATAPP camera access.");
         selectButton = ActionButton("Select photo", "Opens Android's system image picker.");
         saveButton = ActionButton("SAVE current look", "Exports exactly the visible semantic stage to a new document.");
-        var blackWidow = ActionButton("BLACK WIDOW TATTOO", "Opens the configured Facebook page after activation.");
+        var blackWidow = ActionButton("BLACK WIDOW TATTOO",
+            "Opens the configured Facebook page in your default web browser after activation.");
         saveButton.Enabled = false;
         takeButton.Click += (_, _) => LaunchCamera();
         selectButton.Click += (_, _) => LaunchPicker();
@@ -1207,12 +1208,15 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
     {
         try
         {
-            var destination = Uri.Parse(ProductLinks.BlackWidowTattoo) ??
+            var destination = Uri.Parse(ProductMetadata.BlackWidowTattooUrl) ??
                               throw new InvalidOperationException("The configured external link is invalid.");
             externalLinkLauncher.Open(this, destination);
-            SetStatus("Opening the BLACK WIDOW TATTOO Facebook page.");
+            SetStatus("Opening the BLACK WIDOW TATTOO Facebook page in the default web browser.");
         }
-        catch (ActivityNotFoundException exception) { ShowError("The BLACK WIDOW TATTOO page could not be opened.", exception); }
+        catch (ActivityNotFoundException exception)
+        {
+            ShowError("The BLACK WIDOW TATTOO page could not be opened in the default web browser.", exception);
+        }
     }
 
     private void SetBusy(bool busy, string? message = null)

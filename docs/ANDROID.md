@@ -163,10 +163,50 @@ cancellation, deliberate external-link activation, critical-memory recovery,
 Back/Resume, non-default state recreation, and a 2x-text/320 dp structural
 layout stress. The connected run must still be recorded against the exact final
 APK; source compilation alone is not a pass. A runnable verified model and
-heartbeat test and human TalkBack speech/Explore by Touch remain explicit skips.
-A target may also ignore a requested orientation change; that condition is
-reported as a skip rather than a pass. Real maximum system font/display scaling
-and visual usability remain human/device gates.
+heartbeat test is reported as a skip when the target has no installed verified
+model; the later Poco run described below separately exercised that production
+path. Human TalkBack speech/Explore by Touch remains an explicit skip. A target
+may also ignore a requested orientation change; that condition is reported as a
+skip rather than a pass. Real maximum system font/display scaling and visual
+usability remain human/device gates.
+
+To exercise the exact externally signed evaluation APK, set an explicit path:
+
+```bash
+export ANDROID_APP_APK="$PWD/artifacts/android/TATAPP-0.3.0-evaluation-arm64-x86_64.apk"
+scripts/test-android-instrumentation.sh
+```
+
+When `ANDROID_APP_APK` is set, the helper does not rebuild or substitute the app
+APK. It runs the full production APK verifier on that file before compiling the
+test package or installing either package. Without the override, the existing
+RID-specific build path and `ANDROID_SKIP_APP_BUILD` behavior are unchanged.
+
+## Accessible walkthrough media
+
+The reproducible edit contract, source provenance, offline-AI claim boundary,
+and human review gates are documented in
+[the Android walkthrough guide](../media/android-walkthrough/README.md).
+
+From the repository root, validate inputs, render, and run the review verifier:
+
+```bash
+scripts/render-android-walkthrough.py --validate-only
+scripts/render-android-walkthrough.py
+scripts/verify-android-walkthrough.py --review
+```
+
+Generated handoff files are ignored by Git and have fixed paths:
+
+```text
+artifacts/android-walkthrough/final/TATAPP-Android-accessible-walkthrough.mp4
+artifacts/android-walkthrough/final/TATAPP-Android-accessible-walkthrough-SASRT.srt
+artifacts/android-walkthrough/final/FINAL-MEDIA-MANIFEST.json
+```
+
+The non-review verifier intentionally fails until the manifest's human gates
+represent checks that a person actually completed. The render and verifier
+never set those gates to true.
 
 ## Image workflow, lifecycle, and export
 
@@ -239,26 +279,41 @@ threads, and 512 visual tokens. The current in-process runtime applies an
 additional output limit of 96 tokens. `largeMemoryClass` is observed but does not relax admission and the app
 does not request `largeHeap`.
 
-The candidate is `tested: true` based on one bounded two-call Qwen3-VL runtime
-smoke with the exact checksum-verified model and projector. On an API 36 x86_64
-emulator with 16 KiB pages, it described a synthetic 192-by-192 black-ring image
-at the Original image stage with an accurate, nonempty result. The offline run
-took approximately eight minutes, peaked near 2.17 GB proportional set size,
-released inference memory afterward, and completed without OOM or crash.
+The candidate was initially marked `tested: true` based on one bounded two-call
+Qwen3-VL runtime smoke with the exact checksum-verified model and projector. On
+an API 36 x86_64 emulator with 16 KiB pages, it described a synthetic
+192-by-192 black-ring image at the Original image stage with an accurate,
+nonempty result. The offline run took approximately eight minutes, peaked near
+2.17 GB proportional set size, released inference memory afterward, and
+completed without OOM or crash.
 
 The test used the opt-in `TatappEnableOfflineAiSmoke=true` Activity with its
 generated fixture. That Activity is linked only into an explicit smoke build
 and is absent from normal distributable builds.
 
-That evidence is intentionally narrow. It does not validate ARM64 inference, a
-real user photograph, all 16 stages, repeated sessions, cancellation, Activity
-recreation, thermal/battery behavior, description quality across tattoo styles,
-a physical device, or TalkBack. The `tested` flag makes the candidate eligible
-for policy evaluation; selection still requires every live API, ABI, ordinary
-memory-class, current-memory-pressure, storage, CPU, and acceleration gate.
-The current catalog has no smaller tier, so it has no model fallback candidate.
-If admission or inference fails, TATAPP explains the failure and returns to its
-fully functional non-AI editing workflow rather than risking memory exhaustion.
+A subsequent production-UI run on an API 36 ARM64 Poco F7 Ultra downloaded and
+checksum-verified the exact catalog model and projector, then completed all 16
+descriptions. Wi-Fi and mobile data were disabled from stage 6 through stage 16.
+During preprocessing the stage controls remained disabled; completion published
+`Offline descriptions are ready for all 16 stages.`, stopped the heartbeat, and
+made descriptions immediately available at the captured stages 1, 8, 9, and
+16. The process did not OOM. PSS was approximately 2.4 GB while inference was
+active and approximately 302 MB after model-session disposal.
+
+The installed Machine Perception Node could not be reused because its inference
+service and model files are private/non-exported and its package is signed by a
+different identity. TATAPP did not bypass that boundary: the full run used
+TATAPP's own in-process LLamaSharp/llama.cpp CPU runtime entirely on the Poco.
+
+This establishes one physical ARM64 full-batch workflow, not repeated-session,
+cancellation/recreation, thermal/battery, broad tattoo-style quality, or human
+TalkBack results. The observed anatomical-stage descriptions were weak. The
+`tested` flag makes the candidate eligible for policy evaluation; selection
+still requires every live API, ABI, ordinary memory-class,
+current-memory-pressure, storage, CPU, and acceleration gate. The current
+catalog has no smaller tier, so it has no model fallback candidate. If admission
+or inference fails, TATAPP explains the failure and returns to its fully
+functional non-AI editing workflow rather than risking memory exhaustion.
 
 When a tested entry is eligible, installation requires an affirmative
 dialog showing total size. HTTP range requests resume `.partial` files in
@@ -315,7 +370,10 @@ Run `scripts/android/verify-apk.sh` from WSL against that exact copied APK
 before distribution. Do not put password values into `.csproj`, `.props`, a
 shell script, or a committed signing-properties file.
 
-The helper builds, signs, verifies, and writes:
+The helper builds in a unique isolated artifacts tree so a previously signed
+APK cannot satisfy an incremental publish. Before promotion it derives the
+SHA-256 certificate digest from the supplied external keystore and requires
+the APK's sole signer to match it. It then verifies and atomically replaces:
 
 ```text
 artifacts/android/TATAPP-0.3.0-evaluation-arm64-x86_64.apk
@@ -353,8 +411,10 @@ solely for a future consented HTTPS model installation. System pickers and URI
 grants avoid camera and broad storage permissions. TATAPP includes no ads,
 tracking, analytics, cloud inference, background upload, exported content
 provider, or ordinary-editing network dependency. The launcher Activity is the
-only exported production component. Imported images, temporary camera files,
-model partials, verified models, and description caches remain app-private;
+only exported production component. Its sole package-visibility query is a
+generic browsable HTTPS intent used to resolve the configured default browser;
+no browser package is hardcoded. Imported images, temporary camera files, model
+partials, verified models, and description caches remain app-private;
 user-selected exports go only to the destination chosen in the system document
 UI.
 
@@ -383,11 +443,12 @@ UI.
 
 ## Current limitations
 
-- Offline AI has one successful two-call synthetic original-stage Qwen3-VL
-  x86_64 emulator smoke, but ARM64 inference, full 16-stage preload, thermal,
-  cancellation, recreation, repeated-inference, description-quality, and
-  TalkBack behavior remain unverified. Installing and resuming the ordinary app
-  on ARM64 hardware did not exercise inference.
+- Offline AI has both the original two-call synthetic x86_64 smoke and one
+  physical ARM64 Poco full 16-stage production-UI preload. The latter completed
+  without OOM and released most inference memory, but repeated inference,
+  cancellation/recreation, and thermal/battery endurance remain unverified.
+  Anatomical-stage description quality was weak, and no human listener
+  completed the full TalkBack script.
 - Android emits JPEG and PNG. It recognizes BMP, TIFF, and GIF inputs, but
   actual import depends on the device's platform decoder (notably for TIFF);
   successfully decoded inputs use the explicit new-file PNG export fallback.
@@ -395,9 +456,9 @@ UI.
   mesh. It provides contour-aware placement and shading within that geometry;
   it is not photorealistic skin simulation or clinical placement guidance.
 - Native instrumentation verifies the test-provider SAF path and the Android UI
-  contracts listed below. A separate manual emulator pass exercised picker,
-  lifecycle, layout, and memory scenarios. Human TalkBack, visual rendering,
-  physical-device interaction, the loaded-model integrated UI, and a true
+  contracts listed below. Separate emulator and Poco passes exercised picker,
+  lifecycle, layout, memory, and the loaded-model integrated UI within the
+  recorded scopes. Human TalkBack, broad visual/description quality, and a true
   version-to-version upgrade remain unverified.
 - Only 64-bit ARM and x86 Android targets are packaged. There is no 32-bit ARM
   or x86 build; an `armeabi-v7a` watch is therefore unsupported.
@@ -416,12 +477,14 @@ No row implies human TalkBack or visual-quality validation.
 | Native runtime packaging | Final APK plus `scripts/android/verify-apk.sh` | Pass: required runtime libraries are present for both packaged ABIs; 132 packaged ELF files are 16 KiB aligned. |
 | Android Release build, warnings as errors | Full solution Release build | Pass: 0 warnings, 0 errors. |
 | APK metadata, ABIs, permissions, alignment, signature | `scripts/android/verify-apk.sh artifacts/android/TATAPP-0.3.0-evaluation-arm64-x86_64.apk` | Pass: package `com.grayscaleconsultants.tatapp`, version 0.3.0/1, min 26, target 36, `arm64-v8a` + `x86_64`, only `INTERNET`, 132/132 ELF files 16 KiB aligned, APK v2/v3 verified. |
-| Connected Java instrumentation | API 36 x86_64 16 KiB emulator; `scripts/test-android-instrumentation.sh` | Pass: 27 passed, 0 failed, 2 skipped. The stage-debounce/low-memory label-and-export regression passed; skips were loaded-model integrated UI/heartbeat and human TalkBack. |
-| Exact-model offline smoke | API 36 x86_64 16 KiB emulator; synthetic 192 px Original image | Pass: actual Qwen3-VL two-call inference produced accurate nonempty black-ring output, took about 8 minutes, peaked near 2.17 GB PSS, and released inference memory. This is not a full 16-stage preload or ARM64 inference result. |
+| Connected Java instrumentation | API 36 x86_64 16 KiB emulator; `scripts/test-android-instrumentation.sh` | Pass: 27 passed, 0 failed, 2 skipped. The stage-debounce/low-memory label-and-export regression passed; historical skips were loaded-model integrated UI/heartbeat and human TalkBack. The later Poco run separately covered the loaded-model UI path, not human TalkBack. |
+| Exact-model offline smoke | API 36 x86_64 16 KiB emulator; synthetic 192 px Original image | Pass: actual Qwen3-VL two-call inference produced accurate nonempty black-ring output, took about 8 minutes, peaked near 2.17 GB PSS, and released inference memory. This remains the narrow x86_64 qualification result. |
+| ARM64 full offline preload | API 36 Poco F7 Ultra; exact catalog model/projector; production UI; Wi-Fi/mobile disabled from stage 6 through 16 | Pass within observed scope: checksum verification completed, all 16 descriptions completed, controls remained disabled during work, ready status appeared, heartbeat stopped, stages 1/8/9/16 were captured, and no OOM occurred. Anatomical description quality was weak; no human TalkBack claim. |
 | Final APK install and launch | API 36 x86_64 emulator; non-incremental install, cold launch offline, and same-version `-r` install | Pass. The `-r` result validates reinstall mechanics, not migration from an older `versionCode`. |
 | ARM64 installation | API 32 Rokid device; fresh install and resumed Activity | Pass for installation and Activity resumption only; no human visual or accessibility validation was performed. |
-| Other available Android targets | API 36 Poco; `armeabi-v7a` watch | Poco install blocked externally with `INSTALL_FAILED_USER_RESTRICTED`; the 32-bit watch is outside the documented ABI range. |
-| Manual image/lifecycle exercise | API 36 x86_64 emulator | Pass within observed scope: system picker loaded a 256x256 PNG and 6000x4000 JPEG; stage 2 settled ready; rotation retained stage 12 anatomy; background/resume and a background process kill restored the workspace; 2x-font start screen remained usable; system DocumentsUI saved the selected 256x256 Original image as a new PNG; deliberate BLACK WIDOW TATTOO activation opened the exact HTTPS URL and Back restored the workspace. |
-| Managed/native memory observations | API 36 x86_64 emulator PSS samples | About 50 MB cold, 61 MB after the small image, 74 MB after the large source, 108 MB after anatomy/rotation/resume, 111 MB after repeated small import, then 90 MB after background trim. These samples are not an ARM64 or long-running inference profile. |
+| Other available Android targets | API 36 Poco; `armeabi-v7a` watch | Poco accepted the same-signed capture build and completed the bounded offline-AI run above. The final isolated APK then replacement-installed, its pulled `base.apk` matched byte-for-byte, and cold launch completed in 256 ms. The 32-bit watch is outside the documented ABI range. |
+| Manual image/lifecycle exercise | API 36 x86_64 emulator | Pass within observed scope: system picker loaded a 256x256 PNG and 6000x4000 JPEG; stage 2 settled ready; rotation retained stage 12 anatomy; background/resume and a background process kill restored the workspace; 2x-font start screen remained usable; system DocumentsUI saved the selected 256x256 Original image as a new PNG. |
+| BLACK WIDOW default-browser dispatch | API 36 Poco; package-resolution logs and foreground capture | Pass for initial dispatch: TATAPP package-targeted Chrome with the exact configured URL. Chrome then handed the destination to Facebook. The capture returned by explicitly relaunching TATAPP, so direct Back restoration and TalkBack focus preservation remain unverified. |
+| Managed/native memory observations | API 36 x86_64 emulator editing samples; API 36 ARM64 Poco inference samples | Emulator editing ranged from about 50 MB cold to 111 MB after repeated import and 90 MB after background trim. Poco PSS was approximately 2.4 GB during active full-stage inference and approximately 302 MB after session disposal, with no observed OOM. This is one run, not a repeated or thermal/endurance profile. |
 | Human TalkBack script | `docs/ACCESSIBILITY.md` | Unverified: no person performed the speech-quality and Explore-by-Touch script on the final APK. |
-| Final APK size and SHA-256 | `stat`; `sha256sum` | `artifacts/android/TATAPP-0.3.0-evaluation-arm64-x86_64.apk`, 20,128,543 bytes, SHA-256 `c84dd4cd5c0383577494ec580443f848b43e941f45c887820d6718057cec5ed2`. |
+| Final APK identity, size and SHA-256 | `stat`; `sha256sum`; APK signer verification; pulled-Poco `base.apk` comparison | `artifacts/android/TATAPP-0.3.0-evaluation-arm64-x86_64.apk`, 20,140,831 bytes, SHA-256 `14928712d2600511a176bcfe197674e282068def2950dea0378a9817f9ed24fc`, signer SHA-256 `eac3df9aba3e08437bc988682566f072e52d2dde6bda373daa998cdee74d9f90`; the replacement-installed Poco APK matched byte-for-byte. |

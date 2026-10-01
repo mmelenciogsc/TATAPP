@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using TATAPP.Core;
 using TATAPP.Core.Caching;
 using TATAPP.Core.OfflineAI;
 using TATAPP.Core.Workflow;
@@ -15,6 +16,7 @@ internal static class Program
     {
         var tests = new (string Name, Func<Task> Run)[]
         {
+            ("Shared product metadata preserves the exact external destination", Run(ProductMetadataIsExact)),
             ("Workflow starts with exact anatomical defaults", Run(WorkflowDefaultsAreExact)),
             ("Shared anatomy covers every region with distinct immutable geometry", Run(AnatomicalGeometryCoversEveryRegion)),
             ("Shared anatomy preserves left right inner and outer semantics", Run(AnatomicalGeometryPreservesSurfaceSemantics)),
@@ -85,6 +87,12 @@ internal static class Program
         action();
         return Task.CompletedTask;
     };
+
+    private static void ProductMetadataIsExact()
+    {
+        Assert(ProductMetadata.BlackWidowTattooUrl ==
+               "https://www.facebook.com/profile.php?id=61583807836781&sk=directory_contact_info");
+    }
 
     private static void WorkflowDefaultsAreExact()
     {

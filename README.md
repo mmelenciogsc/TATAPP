@@ -53,6 +53,13 @@ uploaded.
 See [Android build, release, and operation](docs/ANDROID.md) and the
 [accessibility contract](docs/ACCESSIBILITY.md).
 
+The reproducible Android accessibility walkthrough is defined in
+[media/android-walkthrough/README.md](media/android-walkthrough/README.md).
+Run `scripts/render-android-walkthrough.py` and then
+`scripts/verify-android-walkthrough.py --review`. The generated MP4, SASRT, and
+evidence manifest are written under the ignored
+`artifacts/android-walkthrough/final/` directory.
+
 ## Offline AI Describe
 
 Windows continues to use the separately installed Ollama/Qwen workflow
@@ -63,11 +70,20 @@ HTTPS downloads, verifies declared sizes and SHA-256 digests, and atomically
 moves the complete set into app-private storage.
 
 The current Android catalog entry is marked `tested: true` after the exact
-checksum-verified model and projector completed one offline, original-stage,
+checksum-verified model and projector completed an offline, original-stage,
 two-call Qwen3-VL runtime smoke on an API 36 x86_64 emulator with 16 KiB pages.
-That narrow smoke establishes runtime viability on that profile; it does not
-claim ARM64 inference, full 16-stage preload, thermal, physical-device, or human
-TalkBack validation.
+A later Poco F7 Ultra API 36 ARM64 run checksum-verified the same catalog pair
+and completed descriptions for all 16 stages with the app's in-process
+LLamaSharp/llama.cpp CPU runtime. Wi-Fi and mobile data remained disabled from
+stage 6 through stage 16; the UI reached its all-stages-ready state, stopped the
+heartbeat, and did not crash or exhaust memory. PSS fell from approximately
+2.4 GB during active inference to approximately 302 MB after model-session
+disposal. TATAPP could not reuse the separately installed Machine Perception
+Node because that app's inference service and model files are private and
+non-exported and its package uses a different signer. This validates one
+physical full-batch workflow, not broad output quality, thermal,
+repeated-session, cancellation/recreation, or human TalkBack behavior. In
+particular, the observed anatomical-stage descriptions were weak.
 Policy still admits the model only when every API, ABI, storage, current-memory,
 CPU, and acceleration threshold passes. No model weights are stored in this
 repository or redistributed in the APK.
@@ -83,8 +99,10 @@ changes are announced only after a semantic stage settles, and reduced-motion
 mode replaces the anatomical camera transition with an immediate detail view.
 
 The prominent **BLACK WIDOW TATTOO** action opens
-`https://www.facebook.com/grayscaleconsultants` in the platform browser only
-after deliberate activation.
+`https://www.facebook.com/profile.php?id=61583807836781&sk=directory_contact_info`
+only after deliberate activation. Android package-targets the initial request
+to the device's configured default browser; that browser may subsequently hand
+the destination to its associated native app under the user's browser settings.
 
 ## Build and test
 
@@ -112,19 +130,26 @@ Release with warnings as errors and 0 warnings/0 errors; Core passed 44/44. The
 WPF project compiled with 0 warnings/0 errors on Linux, but its runtime tests
 could not run there because `Microsoft.WindowsDesktop.App` 10.0 is unavailable.
 API 36 x86_64 16 KiB-emulator instrumentation recorded 27 passed, 0 failed,
-and 2 skipped: loaded-model integrated UI/heartbeat and human TalkBack.
+and 2 skipped: loaded-model integrated UI/heartbeat and human TalkBack. The
+later Poco ARM64 run supplied physical evidence for the full loaded-model
+preload/ready/heartbeat path; no human listener completed the full TalkBack
+script.
 
 The signed evaluation APK is
-`artifacts/android/TATAPP-0.3.0-evaluation-arm64-x86_64.apk` (20,128,543 bytes,
-SHA-256 `c84dd4cd5c0383577494ec580443f848b43e941f45c887820d6718057cec5ed2`).
+`artifacts/android/TATAPP-0.3.0-evaluation-arm64-x86_64.apk` (20,140,831 bytes,
+SHA-256 `14928712d2600511a176bcfe197674e282068def2950dea0378a9817f9ed24fc`;
+signer SHA-256 `eac3df9aba3e08437bc988682566f072e52d2dde6bda373daa998cdee74d9f90`).
 It contains `arm64-v8a` and `x86_64`, targets API 36 with minimum API 26,
 declares only `INTERNET`, passed v2/v3 signature checks, and has all 132 packaged
 ELF files 16 KiB aligned. Install, cold offline launch, and same-version `-r`
 installation passed on the emulator. An API 32 ARM64 Rokid accepted a fresh
 install and resumed the Activity, but no human visual or accessibility review
-was performed there. A Poco install was blocked by
-`INSTALL_FAILED_USER_RESTRICTED`; an available `armeabi-v7a` watch is outside
-the supported ABI set. Full evidence and the remaining non-claims are in
+was performed there. An API 36 ARM64 Poco accepted the same-signed capture build
+and completed the offline-AI workflow described above. The final isolated APK
+then replacement-installed on the Poco; the pulled `base.apk` matched it
+byte-for-byte and cold launch completed in 256 ms. The full AI workflow was not
+attributed to that later publish. An available `armeabi-v7a` watch is outside the
+supported ABI set. Full evidence and the remaining non-claims are in
 [docs/ANDROID.md](docs/ANDROID.md).
 
 On Windows 11 with .NET SDK 10.0.401, the original application remains:

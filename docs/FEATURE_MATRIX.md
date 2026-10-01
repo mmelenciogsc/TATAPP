@@ -12,12 +12,12 @@ This matrix records the behavior derived from commit `b29bb63` before the Androi
 | Accessible anatomy | Visual hit and standard picker stay synchronized | WPF hit test plus `ComboBox` | Native accessible picker is complete without requiring the rendered model; one immutable reducer prevents feedback loops | Picker/model bidirectional synchronization and traversal |
 | Placement motion | Context frame precedes centered detail frame | 450 ms hold plus 2,350 ms cubic movement | Lifecycle-safe animation or immediate detail frame when reduced motion is active | All regions, interruption, rotation and reduced motion |
 | Export | Export the captured stage/state; never alter the imported source | Full-size flat render or settled viewport capture; atomic sibling file | SAF `ACTION_CREATE_DOCUMENT`; immutable displayed-stage/anatomy snapshot; JPEG/PNG or explicit non-destructive PNG fallback for successfully decoded BMP/TIFF/GIF | Exact current stage, success/failure/cancel and no overwrite |
-| Offline description | Actual rendered images, all current catalog stages, original-stage grounding, sequential work, atomic complete cache | Loopback Ollama and WPF viewport capture | App-private verified model and in-process LLamaSharp/llama.cpp runtime behind shared contracts; one synthetic original-stage x86_64 smoke has passed | Ordering, one-session reuse, repeated headroom checks, cancellation and cache completeness; full batch remains unverified |
+| Offline description | Actual rendered images, all current catalog stages, original-stage grounding, sequential work, atomic complete cache | Loopback Ollama and WPF viewport capture | App-private verified model and in-process LLamaSharp/llama.cpp CPU runtime behind shared contracts | Ordering, one-session reuse, repeated headroom checks and atomic cache tests; exact-model x86_64 smoke plus one physical ARM64 16-stage preload/ready/heartbeat run; anatomy output quality and human TalkBack remain unverified |
 | Model policy | Only a tested manifest entry satisfying API, ABI, storage, memory pressure, CPU and acceleration gates is eligible | Windows 2B/4B/8B Ollama policy | Configurable quantized Android manifest; smallest suitable tested variant wins and fallback must be both smaller and lower-ranked; the current single-tier catalog has no smaller fallback and returns to explained non-AI editing on failure | Every threshold, shipped-manifest value and fallback ordering; device admission remains independent of the narrow smoke |
 | Model installation | Explicit consent precedes download; incomplete files are never ready | Ollama-managed pull | Resumable HTTPS partials, displayed size, SHA-256 verification and atomic app-private placement | Consent, resume, checksum, shortage, cancel and cleanup |
 | Progress/audio | Audio is supplementary and stops on every terminal path | Two-note heartbeat during stage preprocessing | Lifecycle/foreground-owned heartbeat plus visible progress; model-install updates require a five-percentage-point change and at least 750 ms in the same phase, while stage preload uses bounded milestones | Heartbeat lifetime and one ready/error announcement |
 | Lifecycle | Stale work cannot replace a newer source or control state | Cancellation tokens on source and window close | Compact saved state plus monotonic generation fences; bounded caches cleared under trim-memory callbacks | Recreation, backgrounding, rapid replacement and stale-result rejection |
-| External navigation | BLACK WIDOW TATTOO opens `https://www.facebook.com/grayscaleconsultants` only after activation | Windows shell launch | Browsable Android `ACTION_VIEW` intent after deliberate activation | Exact destination, activation and error path |
+| External navigation | BLACK WIDOW TATTOO opens `https://www.facebook.com/profile.php?id=61583807836781&sk=directory_contact_info` only after activation | Windows shell launch | Initial package-targeted browsable Android `ACTION_VIEW` to the configured default browser after deliberate activation; recoverable error if none exists; subsequent browser-to-app handoff is browser policy | Exact destination, browser package, activation and error path |
 
 ## Android platform invariants
 
@@ -33,9 +33,9 @@ exposes native range state and conditional Previous/Next custom actions, while
 the separate buttons remain an equivalent no-drag path. Headings and settled
 status/description changes use Android accessibility APIs. The connected runner
 performs native-node, compact-layout, test-provider SAF, recreation,
-stale-result, and memory-callback assertions. Human TalkBack speech, Explore by
-Touch, real system font/display scaling, and physical-device behavior remain
-manual gates; see `ACCESSIBILITY.md`.
+stale-result, and memory-callback assertions. The physical Poco full-preload
+evidence does not replace human TalkBack speech, Explore by Touch, real maximum
+font/display scaling, or other unexercised device gates; see `ACCESSIBILITY.md`.
 
 ## Authoritative stage order
 

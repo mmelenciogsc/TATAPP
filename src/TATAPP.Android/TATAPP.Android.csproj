@@ -16,13 +16,15 @@
     <TatappLlamaNativeDir Condition="'$(TATAPP_LLAMA_NATIVE_DIR)' != ''">$(TATAPP_LLAMA_NATIVE_DIR)</TatappLlamaNativeDir>
     <TatappLlamaNativeDir Condition="'$(TatappLlamaNativeDir)' == ''">$(MSBuildProjectDirectory)/../../artifacts/android/native/llamasharp-0.27.0/native</TatappLlamaNativeDir>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(TatappEnableOfflineAiSmoke)' == 'true'">
+    <DefineConstants>$(DefineConstants);TATAPP_ENABLE_OFFLINE_AI_SMOKE</DefineConstants>
+  </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\TATAPP.Core\TATAPP.Core.csproj" />
     <PackageReference Include="LLamaSharp" Version="0.27.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
     <Compile Include="..\..\tests\TATAPP.Android.Instrumentation\OfflineAiSmokeActivity.cs"
-             Link="OfflineAiSmokeActivity.cs"
-             Condition="'$(TatappEnableOfflineAiSmoke)' == 'true'" />
+             Link="OfflineAiSmokeActivity.cs" />
   </ItemGroup>
   <ItemGroup>
     <AndroidNativeLibrary Include="$(TatappLlamaNativeDir)/android-arm64-v8a/*.so"

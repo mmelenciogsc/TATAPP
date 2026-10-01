@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "assets": [
+    {
+      "role": "demonstration_artwork",
+      "title": "Wolf Head Painting",
+      "creator": "AlepouTheFox",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Wolf_Head_Painting.png",
+      "license": "CC BY-SA 3.0",
+      "license_url": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "local_path": "artifacts/android-walkthrough/raw/wolf-head-cc-by-sa-3.0.png",
+      "sha256": "3accac1a2ec724d1bf34c01d9e0b620bf93ade1d12d31fbd70451d67b2ffb797"
+    },
+    {
+      "role": "demonstration_artwork",
+      "title": "time is running out",
+      "creator": "__april",
+      "source_url": "https://www.flickr.com/photos/26044298@N02/4077997473",
+      "license": "CC BY 2.0",
+      "license_url": "https://creativecommons.org/licenses/by/2.0/",
+      "local_path": "artifacts/android-walkthrough/assets/time-is-running-out.jpg",
+      "sha256": "693c490037494431906b93f3ab36f0c3cc9c5cb7cea8b1172f9fabb4443cd5de"
+    },
+    {
+      "role": "demonstration_artwork",
+      "title": "Sugar Skull - Coloured",
+      "creator": "__april",
+      "source_url": "https://www.flickr.com/photos/26044298@N02/4311331263",
+      "license": "CC BY 2.0",
+      "license_url": "https://creativecommons.org/licenses/by/2.0/",
+      "local_path": "artifacts/android-walkthrough/assets/sugar-skull-coloured.jpg",
+      "sha256": "5943dc10479f9d30db477f153affc1a55a1ad4293570a658273f251fb0c9ba54"
+    },
+    {
+      "role": "background_music",
+      "title": "78 PULSE",
+      "creator": "kjartan_abel",
+      "source_url": "https://freesound.org/people/kjartan_abel/sounds/541944",
+      "license": "CC BY 4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "local_path": "artifacts/android-walkthrough/assets/78-pulse.mp3",
+      "bytes": 2231164,
+      "duration_seconds": 101.590204,
+      "sha256": "22200d7889174f166a5b08fe45577280103541ced3fb8c4c2d06245fdd1e02af"
+    },
+    {
+      "role": "tts_engine",
+      "title": "Piper",
+      "creator": "Piper contributors",
+      "source_url": "https://github.com/rhasspy/piper",
+      "license": "MIT",
+      "local_path": "/usr/local/bin/piper",
+      "sha256": "972211fb4cfb82407c495e2d83183b994d8fb9192808970b54f2a295d6b31b45"
+    },
+    {
+      "role": "tts_voice",
+      "title": "en_US-amy-medium",
+      "creator": "mimic3-voices / Piper voices project",
+      "source_url": "https://huggingface.co/rhasspy/piper-voices/tree/main/en/en_US/amy/medium",
+      "license": "CC BY-SA 4.0",
+      "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "local_path": "/home/marx/driveB/BLACKOUT/scripts/.cache/piper/en_US-amy-medium/en_US-amy-medium.onnx",
+      "sha256": "b3a6e47b57b8c7fbe6a0ce2518161a50f59a9cdd8a50835c02cb02bdd6206c18"
+    }
+  ],
+  "release_blockers": []
+}

@@ -1,3 +1,4 @@
+#if TATAPP_ENABLE_OFFLINE_AI_SMOKE
 using Android.App;
 using Android.Graphics;
 using Android.OS;
@@ -27,14 +28,15 @@ internal sealed class OfflineAiSmokeActivity : Activity
         var externalDirectory = GetExternalFilesDir(null)?.AbsolutePath;
         try
         {
-            using var service = new OfflineAiService(this);
+            var installer = new AndroidOfflineModelInstaller(this);
+            var factory = new LlamaSharpVisionSessionFactory(installer);
+            using var service = new OfflineAiService(this, installer,
+                new AndroidOfflineAiCapabilityProbe(this), factory);
             var variant = service.Catalog.Variants.Single();
-            using var installer = new AndroidOfflineModelInstaller(this);
             var status = await installer.GetStatusAsync(variant, CancellationToken.None).ConfigureAwait(false);
             if (status.State != ModelInstallationState.Ready)
                 throw new InvalidDataException($"Model status is {status.State}: {status.Detail}");
 
-            var factory = new LlamaSharpVisionSessionFactory(installer);
             await using var session = await factory.OpenAsync(variant, CancellationToken.None).ConfigureAwait(false);
             string firstDescription;
             await using (var image = CreateFixture(inverted: false))
@@ -100,3 +102,4 @@ internal sealed class OfflineAiSmokeActivity : Activity
         return new AndroidRenderedStageImage(bitmap.Width, bitmap.Height, output.ToArray());
     }
 }
+#endif

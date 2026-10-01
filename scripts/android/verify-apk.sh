@@ -16,6 +16,7 @@ Environment overrides:
   ANDROID_NDK_VERSION         (default 27.0.12077973)
   EXPECTED_MIN_SDK            (default 26)
   EXPECTED_TARGET_SDK         (default 36)
+  EXPECTED_SIGNER_SHA256      (optional 64-digit signing-certificate digest)
 EOF
 }
 
@@ -211,11 +212,32 @@ grep -Eq '^Verified using v(2|3) scheme .*: true$' "$work_dir/signature.txt" || 
     printf 'APK lacks a verified v2 or v3 signature.\n' >&2
     exit 1
 }
+mapfile -t signer_digests < <(
+    sed -n 's/^Signer #[0-9][0-9]* certificate SHA-256 digest: //p' "$work_dir/signature.txt" |
+        tr '[:upper:]' '[:lower:]'
+)
+[[ ${#signer_digests[@]} -gt 0 ]] || {
+    printf 'APK signer certificate digest was not reported by apksigner.\n' >&2
+    exit 1
+}
+if [[ -n ${EXPECTED_SIGNER_SHA256:-} ]]; then
+    expected_signer_sha256="$(tr -d ':[:space:]' <<< "$EXPECTED_SIGNER_SHA256" | tr '[:upper:]' '[:lower:]')"
+    [[ "$expected_signer_sha256" =~ ^[0-9a-f]{64}$ ]] || {
+        printf 'EXPECTED_SIGNER_SHA256 must be exactly 64 hexadecimal digits.\n' >&2
+        exit 2
+    }
+    if [[ ${#signer_digests[@]} -ne 1 || ${signer_digests[0]} != "$expected_signer_sha256" ]]; then
+        printf 'Signing certificate mismatch: expected %s; found %s.\n' \
+            "$expected_signer_sha256" "$(IFS=,; printf '%s' "${signer_digests[*]}")" >&2
+        exit 1
+    fi
+fi
 
 printf 'Package: %s\nVersion: %s (%s)\nSDK: min %s, target %s\nABIs: %s\n' \
     "$actual_package" "$version_name" "$version_code" "$min_sdk" "$target_sdk" "$actual_abis"
 printf 'Permissions:\n'
 printf '  %s\n' "${actual_permissions[@]}"
+printf 'Signer certificate SHA-256: %s\n' "$(IFS=,; printf '%s' "${signer_digests[*]}")"
 printf 'Exported production components: MainActivity only; OfflineAiSmokeActivity absent.\n'
 printf 'Verified %d embedded ELF files; every LOAD segment is at least 16 KiB aligned.\n' "$elf_count"
 tail -n 1 "$work_dir/zipalign.txt"

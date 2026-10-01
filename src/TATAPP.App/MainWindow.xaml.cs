@@ -18,7 +18,6 @@ namespace TATAPP.App;
 
 public sealed partial class MainWindow : Window, IDisposable
 {
-    private const string BlackWidowTattooFacebookUrl = "https://www.facebook.com/grayscaleconsultants";
     private readonly WindowsCameraCaptureCoordinator camera = new();
     private readonly Dictionary<TattooStageKind, string> offlineAiDescriptions = [];
     private readonly AnatomyViewportController anatomy;
@@ -75,7 +74,7 @@ public sealed partial class MainWindow : Window, IDisposable
     {
         try
         {
-            Process.Start(new ProcessStartInfo(BlackWidowTattooFacebookUrl) { UseShellExecute = true });
+            Process.Start(new ProcessStartInfo(ProductMetadata.BlackWidowTattooUrl) { UseShellExecute = true });
             SetStatus("Opening the BLACK WIDOW TATTOO Facebook page in the default browser.");
         }
         catch (Exception exception) when (exception is Win32Exception or InvalidOperationException)

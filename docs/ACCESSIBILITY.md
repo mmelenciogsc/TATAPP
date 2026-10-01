@@ -93,12 +93,20 @@ immediately without moving focus. Descriptions are grounded in the actual flat
 render or settled anatomical capture and are prompted to distinguish visible
 facts from uncertainty.
 
-The exact Android model/projector pair has passed one synthetic original-stage,
-two-call Qwen3-VL runtime smoke on an API 36 x86_64 emulator. That test did not
-run TalkBack or a complete 16-stage description batch. Accessibility readiness
-therefore still requires the manual AI steps below on the exact release APK;
-the UI must never claim ready merely because files downloaded or a bounded
-smoke succeeded.
+The exact Android model/projector pair first passed a synthetic original-stage,
+two-call Qwen3-VL runtime smoke on an API 36 x86_64 emulator. It later completed
+all 16 descriptions through the production UI on an API 36 ARM64 Poco F7 Ultra.
+Wi-Fi and mobile data were disabled from stage 6 through stage 16; the controls
+remained disabled during preprocessing, the all-stages-ready status appeared,
+and the heartbeat stopped. UI hierarchy captures record cached descriptions at
+stages 1, 8, 9, and 16. No OOM occurred, and PSS fell from approximately 2.4 GB
+during inference to approximately 302 MB after session disposal.
+
+This is device evidence for the offline preload and UI state transitions, not a
+human TalkBack acceptance result. No listener completed the full script below,
+and the anatomical-stage descriptions observed in this run were weak. The UI
+must never claim ready merely because files downloaded or a bounded smoke
+succeeded.
 
 ## Touchscreen operation without TalkBack
 
@@ -119,10 +127,11 @@ smoke succeeded.
 The connected instrumentation runner recorded 27 passed, 0 failed, and 2
 explicit skips on an API 36 x86_64 16 KiB emulator. The skips were the
 loaded-model integrated UI/heartbeat workflow and human TalkBack speech/Explore
-by Touch. The final multi-ABI APK separately passed install, cold offline launch,
-and same-version reinstall on that emulator. No human TalkBack session was
-performed; the partial manual observations below are non-TalkBack emulator
-checks and do not establish speech or visual quality.
+by Touch. The later physical Poco run covered the former through production UI
+evidence; it did not close the human TalkBack skip. The final multi-ABI APK
+separately passed install, cold offline launch, and same-version reinstall on
+the emulator. No human listener performed the full TalkBack script, and the
+observations below do not establish speech or broad visual quality.
 
 | Scenario | Automated evidence | Required human/device evidence | Current human status |
 | --- | --- | --- | --- |
@@ -132,9 +141,9 @@ checks and do not establish speech or visual quality.
 | Anatomy defaults and non-default synchronization | Shared-catalog count, picker/model tap, complexion pixel change, semantics and recreation asserted and passed | Judge visible placement/highlight; TalkBack alternative and touch-exploration behavior | Partial: rotation retained stage 12 anatomy; human visual and TalkBack quality UNVERIFIED |
 | Save current visible stage | Test-only SAF provider compares exported pixels and forces write failure | System DocumentsUI success/cancel/denial and visual comparison | Partial: final APK saved a selected 256x256 Original image as a new PNG through DocumentsUI; cancel/denial and human visual comparison remain UNVERIFIED |
 | Font/display scale, rotation and recreation | 2x-text/320 dp structural stress and orientation recreation passed | Maximum practical system font/display scales in portrait/landscape | Partial: 2x-font start screen usable and rotation retained state on emulator; maximum practical settings and human accessibility remain UNVERIFIED |
-| Memory/lifecycle | Critical trim/low-memory callback usability and stale-source fences passed | Repeated imports, backgrounding and profiler evidence on constrained hardware | Partial emulator evidence: PSS about 50 MB cold, 61 MB small, 74 MB large, 108 MB after anatomy/rotation/resume, 111 MB repeated small, 90 MB after background trim; ARM64 and inference stress UNVERIFIED |
-| BLACK WIDOW TATTOO | Focus emits no intent; activation emits exact browsable URL | Browser launch, return, and preserved TalkBack focus | Partial: final APK opened the exact HTTPS URL in Chrome and Back restored the workspace; TalkBack focus preservation remains UNVERIFIED |
-| Offline AI and heartbeat | False-ready fence passed; separate actual-model two-call x86_64 smoke passed | Exact-model install, offline 16-stage preload, cancellation, memory, speech, and heartbeat lifetime | Loaded-model integrated UI and human TalkBack UNVERIFIED; no ARM64 inference claim |
+| Memory/lifecycle | Critical trim/low-memory callback usability and stale-source fences passed | Repeated imports, backgrounding and profiler evidence on constrained hardware | Emulator editing samples ranged from about 50 MB cold to 111 MB after repeated import. One ARM64 full preload completed without OOM at approximately 2.4 GB active PSS and fell to approximately 302 MB after session disposal; repeated inference, cancellation/recreation, and thermal endurance remain unverified. |
+| BLACK WIDOW TATTOO | Focus emits no intent; activation emits exact browsable URL targeted to the configured browser package | Browser launch, return, and preserved TalkBack focus | Partial: Poco logs prove TATAPP package-targeted Chrome with the exact URL; Chrome then handed the destination to Facebook. The capture returned by explicitly relaunching TATAPP, so direct Back restoration and TalkBack focus preservation remain unverified. |
+| Offline AI and heartbeat | False-ready fence passed; separate actual-model two-call x86_64 smoke passed | Exact-model install, offline 16-stage preload, cancellation, memory, speech, and heartbeat lifetime | Physical ARM64 pass: exact files checksum-verified, all 16 stages completed, radios off for stages 6–16, controls disabled while active, ready state published, heartbeat stopped, and stages 1/8/9/16 captured. Human TalkBack remains unverified; anatomical description quality was weak. |
 
 The SAF provider exists only in the test APK; it is not a production exported
 component. The release verifier separately rejects unexpected exported
@@ -205,9 +214,9 @@ device is offline.
    destination when the test device can simulate it.
 10. **Back and external link.** From Workspace press Back, activate Resume
     workspace, and verify state. Focus BLACK WIDOW TATTOO without activating it
-    and confirm no navigation. Double-tap it, verify the browser opens exactly
-    `https://www.facebook.com/grayscaleconsultants`, then return and confirm the
-    workspace and TalkBack focus remain usable.
+    and confirm no navigation. Double-tap it, verify the device's configured
+    default browser opens exactly `https://www.facebook.com/profile.php?id=61583807836781&sk=directory_contact_info`,
+    then return and confirm the workspace and TalkBack focus remain usable.
 11. **Model consent/error boundary.** Activate Offline AI Describe without an
     installed model. Confirm the dialog states the exact tier and combined size,
     HTTPS/local-storage behavior, and no-upload boundary. Cancel and confirm the

@@ -245,9 +245,17 @@ internal static class Program
         Assert(((string?)button.Attribute("Content"))?.Replace("_", string.Empty, StringComparison.Ordinal) ==
                "BLACK WIDOW TATTOO");
 
-        var source = File.ReadAllText(Path.Combine(RepositoryRoot(), "src", "TATAPP.App", "MainWindow.xaml.cs"));
-        Assert(source.Contains("https://www.facebook.com/grayscaleconsultants", StringComparison.Ordinal));
-        Assert(source.Contains("UseShellExecute = true", StringComparison.Ordinal));
+        const string expectedUrl = "https://www.facebook.com/profile.php?id=61583807836781&sk=directory_contact_info";
+        Assert(ProductMetadata.BlackWidowTattooUrl == expectedUrl);
+
+        var windowsSource = File.ReadAllText(Path.Combine(RepositoryRoot(), "src", "TATAPP.App", "MainWindow.xaml.cs"));
+        Assert(windowsSource.Contains("ProductMetadata.BlackWidowTattooUrl", StringComparison.Ordinal));
+        Assert(windowsSource.Contains("UseShellExecute = true", StringComparison.Ordinal));
+        Assert(!windowsSource.Contains(expectedUrl, StringComparison.Ordinal));
+
+        var androidSource = File.ReadAllText(Path.Combine(RepositoryRoot(), "src", "TATAPP.Android", "MainActivity.cs"));
+        Assert(androidSource.Contains("ProductMetadata.BlackWidowTattooUrl", StringComparison.Ordinal));
+        Assert(!androidSource.Contains(expectedUrl, StringComparison.Ordinal));
     }
 
     private static void StageRepresentativesAreValid()
