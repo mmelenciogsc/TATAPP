@@ -7,6 +7,8 @@ script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 repo_root="$(cd -- "$script_dir/.." && pwd -P)"
 readonly script_dir repo_root
 
+"$script_dir/android/check-release-contract.sh"
+
 has_required_sdk() {
     [[ -x "$1" ]] && "$1" --list-sdks 2>/dev/null | tr -d '\r' | grep -Eq '^10\.0\.401([[:space:]]|$)'
 }

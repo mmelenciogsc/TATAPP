@@ -5,8 +5,8 @@
     <SupportedOSPlatformVersion>26.0</SupportedOSPlatformVersion>
     <ApplicationId>com.grayscaleconsultants.tatapp</ApplicationId>
     <ApplicationTitle>TATAPP — Tattoo Art Prepper</ApplicationTitle>
-    <ApplicationVersion>1</ApplicationVersion>
-    <ApplicationDisplayVersion>0.3.0</ApplicationDisplayVersion>
+    <ApplicationVersion>2</ApplicationVersion>
+    <ApplicationDisplayVersion>0.3.1</ApplicationDisplayVersion>
     <RuntimeIdentifiers Condition="'$(RuntimeIdentifier)' == ''">android-arm64;android-x64</RuntimeIdentifiers>
     <AndroidPackageFormats>apk</AndroidPackageFormats>
     <AndroidUseAapt2>true</AndroidUseAapt2>

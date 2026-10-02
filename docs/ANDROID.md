@@ -8,7 +8,7 @@
 | Target framework | `net10.0-android36.0` |
 | Pinned SDK | .NET SDK 10.0.401, Android workload 36.1.69 |
 | Android API | minimum 26, target/compile 36 |
-| Package/version | `com.grayscaleconsultants.tatapp`, `0.3.0` (`versionCode` 1) |
+| Package/version | `com.grayscaleconsultants.tatapp`, `0.3.1` (`versionCode` 2) |
 | Packaged ABIs | `arm64-v8a`, `x86_64` |
 | Java/toolchain | JDK 17; Build Tools 36.0.0; NDK 27.0.12077973; CMake 3.22.1 |
 | Native inference | LLamaSharp 0.27.0 with llama.cpp commit `3f7c29d318e317b63f54c558bc69803963d7d88c` |
@@ -173,7 +173,7 @@ usability remain human/device gates.
 To exercise the exact externally signed evaluation APK, set an explicit path:
 
 ```bash
-export ANDROID_APP_APK="$PWD/artifacts/android/TATAPP-0.3.0-evaluation-arm64-x86_64.apk"
+export ANDROID_APP_APK="$PWD/artifacts/android/TATAPP-0.3.1-evaluation-arm64-x86_64.apk"
 scripts/test-android-instrumentation.sh
 ```
 
@@ -389,9 +389,9 @@ dotnet publish .\src\TATAPP.Android\TATAPP.Android.csproj `
   -p:AndroidSigningStorePass="env:TATAPP_ANDROID_KEYSTORE_PASSWORD" `
   -p:AndroidSigningKeyPass="env:TATAPP_ANDROID_KEY_PASSWORD"
 Copy-Item "$publish\com.grayscaleconsultants.tatapp-Signed.apk" `
-  ".\artifacts\android\TATAPP-0.3.0-evaluation-arm64-x86_64.apk"
+  ".\artifacts\android\TATAPP-0.3.1-evaluation-arm64-x86_64.apk"
 Get-FileHash `
-  ".\artifacts\android\TATAPP-0.3.0-evaluation-arm64-x86_64.apk" `
+  ".\artifacts\android\TATAPP-0.3.1-evaluation-arm64-x86_64.apk" `
   -Algorithm SHA256
 ```
 
@@ -405,8 +405,8 @@ SHA-256 certificate digest from the supplied external keystore and requires
 the APK's sole signer to match it. It then verifies and atomically replaces:
 
 ```text
-artifacts/android/TATAPP-0.3.0-evaluation-arm64-x86_64.apk
-artifacts/android/TATAPP-0.3.0-evaluation-arm64-x86_64.apk.sha256
+artifacts/android/TATAPP-0.3.1-evaluation-arm64-x86_64.apk
+artifacts/android/TATAPP-0.3.1-evaluation-arm64-x86_64.apk.sha256
 ```
 
 The verifier checks exact package/version/SDK metadata, exact ABI coverage, the
@@ -418,7 +418,7 @@ APK v2/v3 signature verification:
 
 ```bash
 scripts/android/verify-apk.sh \
-  artifacts/android/TATAPP-0.3.0-evaluation-arm64-x86_64.apk
+  artifacts/android/TATAPP-0.3.1-evaluation-arm64-x86_64.apk
 ```
 
 Install without incremental deployment so native mappings come from the final
@@ -426,7 +426,7 @@ APK rather than `incfs`:
 
 ```bash
 adb -s "$ANDROID_SERIAL" install --no-incremental -r \
-  artifacts/android/TATAPP-0.3.0-evaluation-arm64-x86_64.apk
+  artifacts/android/TATAPP-0.3.1-evaluation-arm64-x86_64.apk
 ```
 
 For upgrades, retain the same signing identity, increment `versionCode`, and
@@ -505,7 +505,7 @@ No row implies human TalkBack or visual-quality validation.
 | Windows regression | WPF Release compilation on Linux | Compile pass: 0 warnings, 0 errors. Runtime tests were unavailable because Linux lacks `Microsoft.WindowsDesktop.App` 10.0. |
 | Native runtime packaging | Final APK plus `scripts/android/verify-apk.sh` | Pass: required runtime libraries are present for both packaged ABIs; 132 packaged ELF files are 16 KiB aligned. |
 | Android Release build, warnings as errors | Full solution Release build | Pass: 0 warnings, 0 errors. |
-| APK metadata, ABIs, permissions, alignment, signature | `scripts/android/verify-apk.sh artifacts/android/TATAPP-0.3.0-evaluation-arm64-x86_64.apk` | Pass: package `com.grayscaleconsultants.tatapp`, version 0.3.0/1, min 26, target 36, `arm64-v8a` + `x86_64`, only `INTERNET`, 132/132 ELF files 16 KiB aligned, APK v2/v3 verified. |
+| Prior signed 0.3.0 APK metadata, ABIs, permissions, alignment, signature | `scripts/android/verify-apk.sh artifacts/android/TATAPP-0.3.0-evaluation-arm64-x86_64.apk` | Historical pass: package `com.grayscaleconsultants.tatapp`, version 0.3.0/1, min 26, target 36, `arm64-v8a` + `x86_64`, only `INTERNET`, 132/132 ELF files 16 KiB aligned, APK v2/v3 verified. The current 0.3.1/2 artifact requires a fresh signed publish and verification. |
 | Connected Java instrumentation | API 36 x86_64 16 KiB emulator; `scripts/test-android-instrumentation.sh` | Historical pass: 27 passed, 0 failed, 2 skipped. The stage-debounce/low-memory label-and-export regression passed; historical skips were loaded-model integrated UI/heartbeat and human TalkBack. On 2026-10-02 the target app installed on the Poco, but HyperOS blocked the temporary harness install with `INSTALL_FAILED_USER_RESTRICTED`; no new harness pass is claimed. |
 | Exact-model offline smoke | API 36 x86_64 16 KiB emulator; synthetic 192 px Original image | Pass: actual Qwen3-VL two-call inference produced accurate nonempty black-ring output, took about 8 minutes, peaked near 2.17 GB PSS, and released inference memory. This remains the narrow x86_64 qualification result. |
 | ARM64 full offline preload | API 36 Poco F7 Ultra; exact catalog model/projector; production UI; Wi-Fi/mobile disabled from stage 6 through 16 | Pass within observed scope: checksum verification completed, all 16 descriptions completed, controls remained disabled during work, ready status appeared, heartbeat stopped, stages 1/8/9/16 were captured, and no OOM occurred. Anatomical description quality was weak; no human TalkBack claim. |
@@ -517,4 +517,4 @@ No row implies human TalkBack or visual-quality validation.
 | BLACK WIDOW default-browser dispatch | API 36 Poco; package-resolution logs and foreground capture | Pass for initial dispatch: TATAPP package-targeted Chrome with the exact configured URL. Chrome then handed the destination to Facebook. The capture returned by explicitly relaunching TATAPP, so direct Back restoration and TalkBack focus preservation remain unverified. |
 | Managed/native memory observations | API 36 x86_64 emulator editing samples; API 36 ARM64 Poco inference samples | Emulator editing ranged from about 50 MB cold to 111 MB after repeated import and 90 MB after background trim. Poco PSS was approximately 2.4 GB during active full-stage inference and approximately 302 MB after session disposal, with no observed OOM. This is one run, not a repeated or thermal/endurance profile. |
 | Human TalkBack script | `docs/ACCESSIBILITY.md` | The direct heartbeat test's start/completion announcements passed with Google TalkBack on 2026-10-02. The complete speech-quality, focus, Explore-by-Touch, and full AI readiness-announcement script remains unverified. |
-| Final APK identity, size and SHA-256 | `stat`; `sha256sum`; APK signer verification; pulled-Poco `base.apk` comparison | `artifacts/android/TATAPP-0.3.0-evaluation-arm64-x86_64.apk`, 20,198,175 bytes, SHA-256 `7e9469cdf2c8f87e52c6b5fce8d546f14159eb5358d601b7c3f1d3c095715a77`, signer SHA-256 `eac3df9aba3e08437bc988682566f072e52d2dde6bda373daa998cdee74d9f90`; the replacement-installed Poco APK matched byte-for-byte. |
+| Prior physically validated 0.3.0 APK identity, size and SHA-256 | `stat`; `sha256sum`; APK signer verification; pulled-Poco `base.apk` comparison | `artifacts/android/TATAPP-0.3.0-evaluation-arm64-x86_64.apk`, 20,198,175 bytes, SHA-256 `7e9469cdf2c8f87e52c6b5fce8d546f14159eb5358d601b7c3f1d3c095715a77`, signer SHA-256 `eac3df9aba3e08437bc988682566f072e52d2dde6bda373daa998cdee74d9f90`; the replacement-installed Poco APK matched byte-for-byte. No signed, installed, or device-validated 0.3.1 artifact is claimed by this historical record. |

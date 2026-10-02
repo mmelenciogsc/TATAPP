@@ -154,13 +154,17 @@ but HyperOS rejected the temporary harness with
 `INSTALL_FAILED_USER_RESTRICTED`; it is not a new harness pass, so the earlier
 27-pass run remains historical evidence.
 
-The signed evaluation APK is
-`artifacts/android/TATAPP-0.3.0-evaluation-arm64-x86_64.apk` (20,198,175 bytes,
-SHA-256 `7e9469cdf2c8f87e52c6b5fce8d546f14159eb5358d601b7c3f1d3c095715a77`;
-signer SHA-256 `eac3df9aba3e08437bc988682566f072e52d2dde6bda373daa998cdee74d9f90`).
-It contains `arm64-v8a` and `x86_64`, targets API 36 with minimum API 26,
-declares only `INTERNET`, passed v2/v3 signature checks, and has all 132 packaged
-ELF files 16 KiB aligned. Install, cold offline launch, and same-version `-r`
+The 0.3.1 release script emits
+`artifacts/android/TATAPP-0.3.1-evaluation-arm64-x86_64.apk` and its adjacent
+`.sha256` file after external signing and verification. The most recently signed
+and physically checked artifact remains the historical 0.3.0 APK (20,198,175
+bytes, SHA-256
+`7e9469cdf2c8f87e52c6b5fce8d546f14159eb5358d601b7c3f1d3c095715a77`;
+signer SHA-256
+`eac3df9aba3e08437bc988682566f072e52d2dde6bda373daa998cdee74d9f90`). It
+contains `arm64-v8a` and `x86_64`, targets API 36 with minimum API 26, declares
+only `INTERNET`, passed v2/v3 signature checks, and has all 132 packaged ELF
+files 16 KiB aligned. Install, cold offline launch, and same-version `-r`
 installation passed on the emulator. An API 32 ARM64 Rokid accepted a fresh
 install and resumed the Activity, but no human visual or accessibility review
 was performed there. An API 36 ARM64 Poco accepted the same-signed capture build

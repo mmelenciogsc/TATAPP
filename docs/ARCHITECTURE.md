@@ -42,7 +42,7 @@ must verify.
 The selected baseline is .NET SDK 10.0.401, Android workload 36.1.69,
 `net10.0-android36.0`, minimum API 26, target/compile API 36, package
 `com.grayscaleconsultants.tatapp`, and ABIs `arm64-v8a` and `x86_64`. The APK
-version is 0.3.0 (`versionCode` 1). The native inference build is pinned to NDK
+version is 0.3.1 (`versionCode` 2). The native inference build is pinned to NDK
 27.0.12077973, CMake 3.22.1, LLamaSharp 0.27.0, and llama.cpp commit
 `3f7c29d318e317b63f54c558bc69803963d7d88c`.
 
