@@ -82,8 +82,9 @@ Offline AI Describe is opt-in. The checkbox identifies local model use,
 installation consent, and the no-upload boundary. Download progress has an
 accessible percentage; within one install phase, UI updates require both a
 five-percentage-point advance and at least 750 ms (phase changes and completion
-are immediate). Sequential preprocessing updates a readable non-live description
-region rather than announcing transient N-of-N values. The sole polite status
+are immediate). One Original-image inference is followed by deterministic
+construction of all stage descriptions in a readable non-live region rather
+than announcements of transient N-of-N values. The sole polite status
 region publishes one final readiness sentence after cache commit, heartbeat stop,
 and control restoration. The heartbeat is supplementary, follows Android's
 independently controlled accessibility volume, runs only while foreground
@@ -94,13 +95,15 @@ heartbeat test**, Back also stops it, and Offline AI cannot start concurrently.
 
 A completed description cache must contain every current catalog stage before
 the UI says ready. Selecting a preloaded stage changes the readable description
-immediately without moving focus. Descriptions are grounded in the actual flat
-render or settled anatomical capture and are prompted to distinguish visible
-facts from uncertainty.
+immediately without moving focus. Original includes a clearly labeled unverified
+model observation. Derived descriptions use authoritative stage metadata and
+exact anatomical renderer state, including visibility and completed detail
+framing, and never claim that Qwen visually inspected the derived stage.
 
 The exact Android model/projector pair first passed a synthetic original-stage,
 two-call Qwen3-VL runtime smoke on an API 36 x86_64 emulator. It later completed
-all 16 descriptions through the production UI on an API 36 ARM64 Poco F7 Ultra.
+all 16 model-generated descriptions through a prior production UI build on an
+API 36 ARM64 Poco F7 Ultra.
 Wi-Fi and mobile data were disabled from stage 6 through stage 16; the controls
 remained disabled during preprocessing, the all-stages-ready status appeared,
 and the heartbeat stopped. UI hierarchy captures record cached descriptions at
@@ -160,7 +163,7 @@ therefore remains historical rather than being superseded.
 | Font/display scale, rotation and recreation | 2x-text/320 dp structural stress and orientation recreation passed | Maximum practical system font/display scales in portrait/landscape | Partial: 2x-font start screen usable and rotation retained state on emulator; maximum practical settings and human accessibility remain UNVERIFIED |
 | Memory/lifecycle | Critical trim/low-memory callback usability and stale-source fences passed | Repeated imports, backgrounding and profiler evidence on constrained hardware | Emulator editing samples ranged from about 50 MB cold to 111 MB after repeated import. One ARM64 full preload completed without OOM at approximately 2.4 GB active PSS and fell to approximately 302 MB after session disposal; repeated inference, cancellation/recreation, and thermal endurance remain unverified. |
 | BLACK WIDOW TATTOO | Focus emits no intent; activation emits exact browsable URL targeted to the configured browser package | Browser launch, return, and preserved TalkBack focus | Partial: Poco logs prove TATAPP package-targeted Chrome with the exact URL; Chrome then handed the destination to Facebook. The capture returned by explicitly relaunching TATAPP, so direct Back restoration and TalkBack focus preservation remain unverified. |
-| Offline AI and heartbeat | False-ready fence passed; separate actual-model two-call x86_64 smoke passed. The current source contract publishes `Offline descriptions are ready for all 16 stages.` through the sole polite status region only after cache commit, heartbeat stop, and control restoration. | Exact-model install, offline 16-stage preload, cancellation, memory, speech, and heartbeat lifetime | Physical ARM64 evidence includes the earlier complete 16-stage run and the 2026-10-02 direct heartbeat test: all three revised pulses were audible and TalkBack announced test start/completion. The revised full-AI readiness utterance has not been human reverified; anatomical description quality was weak. |
+| Offline AI and heartbeat | False-ready fence passed; separate actual-model two-call x86_64 smoke passed. The current source contract publishes `AI-assisted, renderer-grounded descriptions are ready for all 16 stages. The offline model analyzed Original once; transformed stages use renderer and placement state.` through the sole polite status region only after cache commit, heartbeat stop, and control restoration. | Exact-model install, offline 16-stage preload, cancellation, memory, speech, and heartbeat lifetime | Physical ARM64 evidence includes the earlier complete 16-stage run and the 2026-10-02 direct heartbeat test: all three revised pulses were audible and TalkBack announced test start/completion. The revised full-AI readiness utterance has not been human reverified; anatomical description quality was weak. |
 
 The SAF provider exists only in the test APK; it is not a production exported
 component. The release verifier separately rejects unexpected exported

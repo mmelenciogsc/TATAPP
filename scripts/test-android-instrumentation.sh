@@ -151,8 +151,16 @@ rg -q 'Cancel offline AI' "$repo_root/src/TATAPP.Android/MainActivity.cs"
 rg -q 'if \(aiWorkActive\)' "$repo_root/src/TATAPP.Android/MainActivity.cs"
 rg -q 'CoalescingModelInstallProgress' "$repo_root/src/TATAPP.Android/MainActivity.cs"
 rg -q 'SetOnApplyWindowInsetsListener' "$repo_root/src/TATAPP.Android/MainActivity.cs"
-rg -q 'capture = anatomy.CapturePlacement\(preparedTattoo!, anatomySnapshot, 1f\)' \
+rg -q 'if \(stage.Kind != TattooStageKind.Original\)' \
   "$repo_root/src/TATAPP.Android/MainActivity.cs"
+rg -q 'Offline model input is restricted to the Original source stage\.' \
+  "$repo_root/src/TATAPP.Android/MainActivity.cs"
+rg -q 'OfflineStageDescriptionPrompt.BuildOriginal\(request.Stage\)' \
+  "$repo_root/src/TATAPP.Android/OfflineAi.cs"
+rg -Uq '(?s)TryGetCachedDescriptions\(cacheKey, out var cachedBatch\).*?No model inference was run\..*?return;.*?heartbeat\.Start\(\)' \
+  "$repo_root/src/TATAPP.Android/MainActivity.cs"
+rg -Uq '(?s)var completed = new OfflineDescriptionBatch\(descriptions\);.*?cancellationToken\.ThrowIfCancellationRequested\(\);.*?cache\.Store\(key, completed\)' \
+  "$repo_root/src/TATAPP.Core/OfflineAI/OfflineAiOrchestration.cs"
 rg -Uq '(?s)public Bitmap CapturePlacement\(Bitmap preparedTattoo, AnatomicalWorkflowState placementState,.*?finally.*?tattoo = previousTattoo;.*?state = previousState;.*?placementVisible = previousPlacementVisible;.*?focusProgress = previousFocus;' \
   "$repo_root/src/TATAPP.Android/AnatomyView.cs"
 rg -q 'ApplyRotation\(delta \* 0.45, notifySettled: false\)' "$repo_root/src/TATAPP.Android/AnatomyView.cs"
@@ -161,7 +169,7 @@ for workspace_choice in \
   'Image actions and workspace start' \
   'Stage controls' \
   'Body placement controls' \
-  'Offline descriptions'; do
+  'Offline AI-assisted descriptions'; do
   rg -q "\"$workspace_choice\"" "$repo_root/src/TATAPP.Android/MainActivity.cs"
 done
 workspace_navigation_count=$(rg -c '= CreateWorkspaceNavigationButton\(\)|AddView\(CreateWorkspaceNavigationButton\(\)\)' \
@@ -176,9 +184,9 @@ if rg -q 'SetStatus\(\$"Preparing offline descriptions:' "$repo_root/src/TATAPP.
   printf 'Offline description stage progress must not use the live status region.\n' >&2
   exit 1
 fi
-rg -Uq '(?s)offlineDescriptions.Clear\(\);.*?heartbeat.Stop\(\);.*?SetBusy\(false\);.*?SetStatus\(\$"Offline descriptions are ready for all \{batch\.Descriptions\.Count\} stages\."\);' \
+rg -Uq '(?s)offlineDescriptions.Clear\(\);.*?heartbeat.Stop\(\);.*?SetBusy\(false\);.*?SetStatus\(\$"AI-assisted, renderer-grounded descriptions are ready for all \{batch\.Descriptions\.Count\} stages\.' \
   "$repo_root/src/TATAPP.Android/MainActivity.cs"
-ready_announcement_count=$(rg -c 'SetStatus\(\$"Offline descriptions are ready for all \{batch\.Descriptions\.Count\} stages\."\);' \
+ready_announcement_count=$(rg -c 'SetStatus\(\$"AI-assisted, renderer-grounded descriptions are ready for all \{batch\.Descriptions\.Count\} stages\.' \
   "$repo_root/src/TATAPP.Android/MainActivity.cs")
 [[ "$ready_announcement_count" == 1 ]] || {
   printf 'Expected exactly one polite offline-ready status update; found %s.\n' "$ready_announcement_count" >&2

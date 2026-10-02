@@ -131,8 +131,12 @@ become visible only as a complete 16-stage cache.
 ### Android
 
 Android uses shared policy/orchestration with platform implementations for
-capability probing, app-private installation, rendered-stage capture, and an
-in-process LLamaSharp session. The probe records API level, supported ABIs,
+capability probing, app-private installation, bounded Original-image capture,
+and an in-process LLamaSharp session. Qwen is invoked exactly once on Original.
+That unverified observation is shown only for Original; shared orchestration
+constructs all transformed and anatomical descriptions from authoritative stage
+metadata and the exact cached renderer state, without claiming that Qwen
+inspected a derived render. The probe records API level, supported ABIs,
 ordinary and large memory classes, current available/low-memory state, free
 storage, CPU flags, and available acceleration. Policy does not rely on
 `largeMemoryClass` and rejects every variant that is untested or misses any
@@ -173,10 +177,12 @@ lower-ranked and lower-working-set. The current one-entry catalog therefore has
 no smaller model fallback; an admission or runtime failure returns to the
 clearly explained non-AI editing workflow.
 
-Preloading opens one model session and renders every current catalog stage
-strictly in order with a fresh memory check before each stage. Images, visual
-tokens, context, output, and CPU threads are capped. A batch is committed to the
-bounded description cache only after every stage succeeds. Cancellation,
+Preloading opens one model session and renders and infers only the Original
+image, with fresh memory checks around that single bounded request. Images,
+visual tokens, context, output, and CPU threads are capped. After disposing the
+model input and session, orchestration constructs all 16 descriptions in catalog
+order from authoritative renderer metadata and anatomical state. A batch is
+committed to the bounded description cache only after every stage succeeds. Cancellation,
 pressure, malformed output, or inference failure disposes the session and
 retains no partial ready cache. The foreground-only Android heartbeat is a
 four-second `MODE_STATIC` loop on Android's accessibility-assistance audio

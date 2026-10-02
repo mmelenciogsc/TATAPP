@@ -42,14 +42,14 @@ internal sealed class OfflineAiSmokeActivity : Activity
             await using (var image = CreateFixture(inverted: false))
             {
                 firstDescription = await session.DescribeAsync(new StageDescriptionRequest(
-                    TattooStageCatalog.All[0], image, null, variant.ContextTokens, 32),
+                    TattooStageCatalog.All[0], image, variant.ContextTokens, 32),
                     CancellationToken.None).ConfigureAwait(false);
             }
             string secondDescription;
             await using (var image = CreateFixture(inverted: true))
             {
                 secondDescription = await session.DescribeAsync(new StageDescriptionRequest(
-                    TattooStageCatalog.All[0], image, null, variant.ContextTokens, 32),
+                    TattooStageCatalog.All[0], image, variant.ContextTokens, 32),
                     CancellationToken.None).ConfigureAwait(false);
             }
             var result = "FIRST: " + firstDescription + "\nSECOND: " + secondDescription;

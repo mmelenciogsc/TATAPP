@@ -65,7 +65,7 @@ public sealed record AnatomicalWorkflowState(
         AnatomicalDefaults.PreferredRotation(region);
 
     internal string DescriptionCacheKey => FormattableString.Invariant(
-        $"g{AnatomicalGeometryCatalog.GeometryRevision}:{Sex}:{Region}:{HeightCentimeters:0.###}:{SkinToneValue:0.###}:{RotationDegrees:0.###}:{CameraDistance:0.###}");
+        $"g{AnatomicalGeometryCatalog.GeometryRevision}:{Sex}:{Region}:{HeightCentimeters:0.###}:{SkinToneValue:0.###}:{RotationDegrees:0.###}:{CameraDistance:0.###}:{ReducedMotion}");
 }
 
 /// <summary>

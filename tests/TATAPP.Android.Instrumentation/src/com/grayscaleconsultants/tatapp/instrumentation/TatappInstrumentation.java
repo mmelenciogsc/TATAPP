@@ -248,10 +248,11 @@ public final class TatappInstrumentation extends Instrumentation {
         SeekBar skinTone = findSeekBar("Skin tone and complexion");
         TextView reducedMotion = findExact(root(), "Reduce anatomy motion");
         TextView placementSummary = findByContentPrefixAsText("Current placement.");
-        TextView offlineSection = findExact(root(), "Offline descriptions");
+        TextView offlineSection = findExact(root(), "Offline AI-assisted descriptions");
         TextView heartbeatTest = findExact(root(), "Test processing heartbeat");
         TextView offlineToggle = findExact(root(), "Offline AI Describe");
-        TextView offlineSummary = findByContentPrefixAsText("Offline AI visual description.");
+        TextView offlineSummary = findByContentPrefixAsText(
+                "Offline AI-assisted, renderer-grounded description.");
         TextView status = findByContentPrefixAsText("Application status.");
         TextView previewSection = findExact(root(), "Current previews");
         ImageView photoPreview = findImagePreview();
@@ -275,7 +276,7 @@ public final class TatappInstrumentation extends Instrumentation {
                 "Compact stage and placement proxies expose the current visual state.");
         require(offlineSummary != null && offlineSummary.isFocusable() &&
                         offlineSummary.getAccessibilityLiveRegion() == View.ACCESSIBILITY_LIVE_REGION_NONE,
-                "Offline descriptions remain readable and focusable without becoming a live announcement source.");
+                "Offline AI-assisted descriptions remain readable and focusable without becoming a live announcement source.");
         int liveRegions = 0;
         for (View view : descendants(root()))
             if (isVisibilityChainVisible(view) &&
@@ -391,7 +392,7 @@ public final class TatappInstrumentation extends Instrumentation {
                 "Image actions and workspace start",
                 "Stage controls",
                 "Body placement controls",
-                "Offline descriptions"
+                "Offline AI-assisted descriptions"
         };
         int[] choiceOrder = { 1, 3, 2, 0, 1 };
         require(scroll != null, "The workspace ScrollView is present for section navigation.");

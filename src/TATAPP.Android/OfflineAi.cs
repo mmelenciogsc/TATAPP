@@ -13,6 +13,7 @@ using LLama.Common;
 using LLama.Native;
 using TATAPP.Core;
 using TATAPP.Core.OfflineAI;
+using TATAPP.Core.Workflow;
 
 namespace TATAPP.AndroidApp;
 
@@ -395,9 +396,11 @@ internal sealed class LlamaSharpVisionSession : IOfflineVisionSession
         try
         {
             linked.Token.ThrowIfCancellationRequested();
-            // InteractiveExecutor retains prompt/token bookkeeping that is not reset
-            // by llama_memory_clear. A fresh executor prevents one stage from becoming
-            // a continuation of the prior stage while retaining the costly model state.
+            if (request.Stage.Kind != TattooStageKind.Original)
+                throw new InvalidOperationException(
+                    "Android offline vision inference is restricted to the Original image stage.");
+            // A fresh executor isolates the one permitted Original-image request while
+            // retaining the costly model state only for the duration of that inference.
             var executor = new InteractiveExecutor(context, mtmd);
             var output = new StringBuilder();
             try
@@ -405,8 +408,7 @@ internal sealed class LlamaSharpVisionSession : IOfflineVisionSession
                 var embed = mtmd.LoadMedia(request.Image.EncodedBytes.Span);
                 executor.Embeds.Add(embed);
                 var instruction = $"{mediaMarker}\n" +
-                                  OfflineStageDescriptionPrompt.Build(request.Stage,
-                                      request.SourceModelObservation);
+                                  OfflineStageDescriptionPrompt.BuildOriginal(request.Stage);
                 var template = new LLamaTemplate(weights, strict: true) { AddAssistant = true };
                 template.Add("system", "You are an offline visual description assistant. Be concise, vivid, factual, and explicit about uncertainty.");
                 template.Add("user", instruction);
@@ -523,9 +525,13 @@ internal sealed class OfflineAiService : IDisposable
         IProgress<ModelInstallProgress>? progress, CancellationToken token) =>
         provisioner.EnsureReadyAsync(variant, consented, progress, token);
     public Task<OfflineDescriptionBatch> PreloadAsync(OfflineDescriptionCacheKey key,
-        OfflineModelVariant variant, IStageDescriptionImageSource imageSource,
+        OfflineModelVariant variant, AnatomicalWorkflowState anatomy,
+        IStageDescriptionImageSource imageSource,
         IProgress<OfflineDescriptionProgress>? progress, CancellationToken token) =>
-        preloadCoordinator.PreloadAsync(key, variant, imageSource, sessionFactory, capabilityProbe, progress, token);
+        preloadCoordinator.PreloadAsync(key, variant, anatomy, imageSource, sessionFactory,
+            capabilityProbe, progress, token);
+    public bool TryGetCachedDescriptions(OfflineDescriptionCacheKey key,
+        out OfflineDescriptionBatch? batch) => descriptionCache.TryGet(key, out batch);
 
     public void InvalidateSource(string sourceId) => descriptionCache.InvalidateSource(sourceId);
 

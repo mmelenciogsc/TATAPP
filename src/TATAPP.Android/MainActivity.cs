@@ -21,7 +21,9 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
     private const int PickPhotoRequest = 1001;
     private const int TakePhotoRequest = 1002;
     private const int ExportRequest = 1003;
-    private const string OfflineDescriptionPromptRevision = "tatapp-android-objective-stage-v3";
+    private const string OfflineDescriptionPromptRevision = "tatapp-android-objective-stage-v5";
+    private const string OfflineDescriptionAccessibilityPrefix =
+        "Offline AI-assisted, renderer-grounded description. ";
     private const int HeartbeatTestPulseCount = 3;
     private const int HeartbeatTestDurationMilliseconds =
         ProcessingHeartbeatWaveform.FirstPulseDelayMilliseconds +
@@ -207,7 +209,7 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
 
         stageSectionHeading = Heading("Stage controls", 20, false);
         bodySectionHeading = Heading("Body placement", 20, false);
-        offlineSectionHeading = Heading("Offline descriptions", 20, false);
+        offlineSectionHeading = Heading("Offline AI-assisted descriptions", 20, false);
         workspacePanel.AddView(stageSectionHeading);
         stageNavigationButton = CreateWorkspaceNavigationButton();
         workspacePanel.AddView(stageNavigationButton);
@@ -401,7 +403,8 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
         workspacePanel.AddView(offlineAiCheckBox);
         offlineAiDescription = Label("Offline AI Describe is off.");
         offlineAiDescription.Focusable = true;
-        offlineAiDescription.ContentDescription = "Offline AI visual description. Offline AI Describe is off.";
+        offlineAiDescription.ContentDescription =
+            OfflineDescriptionAccessibilityPrefix + "Offline AI Describe is off.";
         offlineAiDescription.AccessibilityLiveRegion = AccessibilityLiveRegion.None;
         workspacePanel.AddView(offlineAiDescription);
 
@@ -413,7 +416,8 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
         };
         progress.SetMinimumHeight(Dp(8));
         workspacePanel.AddView(progress);
-        cancelWorkButton = ActionButton("Cancel offline AI", "Stops the current model download or description preparation safely.");
+        cancelWorkButton = ActionButton("Cancel offline AI",
+            "Stops the current model download, Original-image inference, or description construction safely.");
         cancelWorkButton.Visibility = ViewStates.Gone;
         cancelWorkButton.Click += (_, _) => CancelOfflineAiWork();
         workspacePanel.AddView(cancelWorkButton);
@@ -433,7 +437,7 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
     private Button CreateWorkspaceNavigationButton()
     {
         var button = ActionButton("Workspace navigation",
-            "Opens a native list for moving to image actions, stage controls, body placement controls, or offline descriptions.");
+            "Opens a native list for moving to image actions, stage controls, body placement controls, or Offline AI-assisted descriptions.");
         button.Click += (_, _) => ShowWorkspaceNavigation(button);
         return button;
     }
@@ -451,7 +455,7 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
             "Image actions and workspace start",
             "Stage controls",
             "Body placement controls",
-            "Offline descriptions",
+            "Offline AI-assisted descriptions",
         };
         AlertDialog? dialog = null;
         var builder = new AlertDialog.Builder(this);
@@ -752,7 +756,8 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
         offlineAiCheckBox.Checked = false;
         synchronizingControls = false;
         offlineAiDescription.Text = "Offline AI Describe is off for the newly loaded photo.";
-        offlineAiDescription.ContentDescription = "Offline AI visual description. " + offlineAiDescription.Text;
+        offlineAiDescription.ContentDescription =
+            OfflineDescriptionAccessibilityPrefix + offlineAiDescription.Text;
         stageCache.Clear();
         if (previousId is not null) offlineAi.InvalidateSource(previousId);
         announcedStage = null;
@@ -887,7 +892,7 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
         if (offlineDescriptions.TryGetValue(stage.Kind, out var description))
         {
             offlineAiDescription.Text = description;
-            offlineAiDescription.ContentDescription = "Offline AI visual description. " + description;
+            offlineAiDescription.ContentDescription = OfflineDescriptionAccessibilityPrefix + description;
         }
         if (announceReady)
             SetStatus($"Ready. Stage {StageIndex(stage)} of {TattooStageCatalog.All.Count}: {stage.Name}.");
@@ -1133,6 +1138,28 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
                 OfflineDescriptionPromptRevision, anatomySnapshot);
             EnsureCurrentAiOperation(operationGeneration, source, sourceGeneration,
                 anatomySnapshot, model, cacheKey, token);
+            if (offlineAi.TryGetCachedDescriptions(cacheKey, out var cachedBatch))
+            {
+                Interlocked.Exchange(ref terminal, 1);
+                await RunOnUiThreadAsync(() =>
+                {
+                    EnsureCurrentAiOperation(operationGeneration, source, sourceGeneration,
+                        anatomySnapshot, model, cacheKey, token);
+                    offlineDescriptions.Clear();
+                    foreach (var pair in cachedBatch!.Descriptions)
+                        offlineDescriptions[pair.Key] = pair.Value;
+                    var selected = TattooStageCatalog.FromSlider(stageSlider.Progress);
+                    offlineAiDescription.Text = offlineDescriptions[selected.Kind];
+                    offlineAiDescription.ContentDescription =
+                        OfflineDescriptionAccessibilityPrefix + offlineAiDescription.Text;
+                    aiPreprocessing = false;
+                    aiWorkActive = false;
+                    if (ReferenceEquals(aiCancellation, operationCancellation)) aiCancellation = null;
+                    SetBusy(false);
+                    SetStatus($"AI-assisted, renderer-grounded descriptions loaded from this session's cache for all {cachedBatch.Descriptions.Count} stages. No model inference was run.");
+                });
+                return;
+            }
             var consented = status.State == ModelInstallationState.Ready;
             if (!consented)
             {
@@ -1182,10 +1209,10 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
                 EnsureCurrentAiOperation(operationGeneration, source, sourceGeneration,
                     anatomySnapshot, model, cacheKey, token);
                 SetBusy(true,
-                    "Opening the verified offline model and preparing descriptions sequentially. No photo data leaves this device.");
+                    "Opening the verified offline model and analyzing the Original image once. Derived-stage descriptions will use authoritative renderer and placement state. No photo data leaves this device.");
                 aiPreprocessing = true;
                 if (foreground && !heartbeat.Start())
-                    SetStatus("The processing heartbeat is unavailable. Offline description preparation continues with visible progress.");
+                    SetStatus("The processing heartbeat is unavailable. Original-image analysis and renderer-grounded description construction continue with visible progress.");
             });
             var stageProgress = new CallbackProgress<OfflineDescriptionProgress>(update =>
                 TrackTask(RunOnUiThreadAsync(() =>
@@ -1193,18 +1220,24 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
                     if (Volatile.Read(ref terminal) != 0 ||
                         !IsCurrentAiOperation(operationGeneration, source, sourceGeneration,
                             anatomySnapshot, model, cacheKey, token)) return;
+                    // Progress begins only after the one Original-image inference and its model
+                    // session have ended. The heartbeat must not cover deterministic text assembly.
+                    heartbeat.Stop();
+                    aiPreprocessing = false;
                     progress.Indeterminate = false;
                     progress.Max = update.Total;
                     progress.Progress = update.Completed;
-                    progress.ContentDescription = $"Offline description preparation, {update.Completed} of {update.Total} stages";
+                    progress.ContentDescription =
+                        $"AI-assisted renderer-grounded description construction, {update.Completed} of {update.Total} stages";
                     offlineAiDescription.Text =
-                        $"Preparing offline descriptions: {update.Completed} of {update.Total}, {update.Stage.Name}.";
+                        $"Constructing AI-assisted, renderer-grounded descriptions: {update.Completed} of {update.Total}, {update.Stage.Name}.";
                     offlineAiDescription.ContentDescription =
-                        "Offline AI visual description. " + offlineAiDescription.Text;
+                        OfflineDescriptionAccessibilityPrefix + offlineAiDescription.Text;
                 })));
             var imageSource = new DelegatingStageDescriptionImageSource((stage, maximumDimension, stageToken) =>
-                RenderOfflineDescriptionStageAsync(source, stage, anatomySnapshot, maximumDimension, stageToken));
-            var batch = await offlineAi.PreloadAsync(cacheKey, model, imageSource, stageProgress, token)
+                RenderOfflineDescriptionSourceAsync(source, stage, maximumDimension, stageToken));
+            var batch = await offlineAi.PreloadAsync(cacheKey, model, anatomySnapshot, imageSource,
+                stageProgress, token)
                 .ConfigureAwait(false);
             EnsureCurrentAiOperation(operationGeneration, source, sourceGeneration,
                 anatomySnapshot, model, cacheKey, token);
@@ -1217,13 +1250,14 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
                 foreach (var pair in batch.Descriptions) offlineDescriptions[pair.Key] = pair.Value;
                 var selected = TattooStageCatalog.FromSlider(stageSlider.Progress);
                 offlineAiDescription.Text = offlineDescriptions[selected.Kind];
-                offlineAiDescription.ContentDescription = "Offline AI visual description. " + offlineAiDescription.Text;
+                offlineAiDescription.ContentDescription =
+                    OfflineDescriptionAccessibilityPrefix + offlineAiDescription.Text;
                 heartbeat.Stop();
                 aiPreprocessing = false;
                 aiWorkActive = false;
                 if (ReferenceEquals(aiCancellation, operationCancellation)) aiCancellation = null;
                 SetBusy(false);
-                SetStatus($"Offline descriptions are ready for all {batch.Descriptions.Count} stages.");
+                SetStatus($"AI-assisted, renderer-grounded descriptions are ready for all {batch.Descriptions.Count} stages. The offline model analyzed Original once; transformed stages use renderer and placement state.");
             });
         }
         catch (System.OperationCanceledException)
@@ -1285,40 +1319,17 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
             InnerException: DllNotFoundException or EntryPointNotFoundException or BadImageFormatException
         };
 
-    private async Task<IRenderedStageImage> RenderOfflineDescriptionStageAsync(AndroidPhotoDocument source,
-        TattooStage stage, AnatomicalWorkflowState anatomySnapshot, int maximumDimension,
+    private Task<IRenderedStageImage> RenderOfflineDescriptionSourceAsync(AndroidPhotoDocument source,
+        TattooStage stage, int maximumDimension,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (stage.Kind != TattooStageKind.Original)
+            throw new InvalidOperationException(
+                "Offline model input is restricted to the Original source stage.");
         var rendered = TattooStageCatalog.RenderDesign(source.Preview, stage, cancellationToken);
-        if (!stage.IsAnatomicalPlacement)
-            return EncodeRenderedStage(rendered, maximumDimension, cancellationToken);
-
-        Bitmap? preparedTattoo = null;
-        Bitmap? capture = null;
-        try
-        {
-            preparedTattoo = await Task.Run(() =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                var texture = TattooInkTexture.CreatePlacementTexture(rendered);
-                cancellationToken.ThrowIfCancellationRequested();
-                return imageService.ToBitmap(texture);
-            }, cancellationToken).ConfigureAwait(false);
-            await RunOnUiThreadAsync(() =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                capture = anatomy.CapturePlacement(preparedTattoo!, anatomySnapshot, 1f);
-            });
-            return await Task.Run(() => EncodeBitmap(capture ??
-                    throw new InvalidDataException("Android could not capture the anatomical preview."),
-                maximumDimension, cancellationToken), cancellationToken).ConfigureAwait(false);
-        }
-        finally
-        {
-            capture?.Dispose();
-            preparedTattoo?.Dispose();
-        }
+        return Task.FromResult<IRenderedStageImage>(
+            EncodeRenderedStage(rendered, maximumDimension, cancellationToken));
     }
 
     private bool IsCurrentAiOperation(long operationGeneration, AndroidPhotoDocument source,
@@ -1353,7 +1364,7 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
         synchronizingControls = false;
         offlineDescriptions.Clear();
         offlineAiDescription.Text = message;
-        offlineAiDescription.ContentDescription = "Offline AI visual description. " + message;
+        offlineAiDescription.ContentDescription = OfflineDescriptionAccessibilityPrefix + message;
         SetStatus(message);
     });
 
@@ -1433,7 +1444,7 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
     {
         if (offlineDescriptions.Count == 0 && !offlineAiCheckBox.Checked) return;
         StopOfflineAi(
-            "Offline descriptions were cleared because anatomical placement changed. Enable Offline AI Describe again to refresh them.",
+            "AI-assisted, renderer-grounded descriptions were cleared because anatomical placement changed. Enable Offline AI Describe again to refresh them.",
             updateStatus: false);
     }
 
@@ -1590,7 +1601,7 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
         synchronizingControls = false;
         offlineDescriptions.Clear();
         offlineAiDescription.Text = description;
-        offlineAiDescription.ContentDescription = "Offline AI visual description. " + description;
+        offlineAiDescription.ContentDescription = OfflineDescriptionAccessibilityPrefix + description;
         if (wasActive) SetBusy(false);
         if (updateStatus) SetStatus(description);
     }
@@ -1875,7 +1886,7 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
         base.OnResume();
         foreground = true;
         if (aiPreprocessing && !heartbeat.Start())
-            SetStatus("The processing heartbeat is unavailable. Offline description preparation continues with visible progress.");
+            SetStatus("The processing heartbeat is unavailable. Original-image analysis and renderer-grounded description construction continue with visible progress.");
     }
 
     protected override void OnStop()

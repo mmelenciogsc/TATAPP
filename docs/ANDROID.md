@@ -291,20 +291,24 @@ The test used the opt-in `TatappEnableOfflineAiSmoke=true` Activity with its
 generated fixture. That Activity is linked only into an explicit smoke build
 and is absent from normal distributable builds.
 
-A subsequent production-UI run on an API 36 ARM64 Poco F7 Ultra downloaded and
+A prior production-UI build on an API 36 ARM64 Poco F7 Ultra downloaded and
 checksum-verified the exact catalog model and projector, then completed all 16
-descriptions. Wi-Fi and mobile data were disabled from stage 6 through stage 16.
+model-generated descriptions. Wi-Fi and mobile data were disabled from stage 6 through stage 16.
 During preprocessing the stage controls remained disabled; completion published
 `Offline descriptions are ready for all 16 stages.`, stopped the heartbeat, and
 made descriptions immediately available at the captured stages 1, 8, 9, and
 16. The process did not OOM. PSS was approximately 2.4 GB while inference was
 active and approximately 302 MB after model-session disposal.
 
-The current source contract commits the description cache, stops the heartbeat,
-restores the controls, and only then publishes that exact sentence through the
-sole polite status region. It does not toggle the live region or send a separate
-announcement event. That revised one-path TalkBack behavior remains pending
-human re-verification.
+The current v5 source contract invokes Qwen exactly once on Original, disposes
+the input and model session, then constructs all 16 descriptions from
+authoritative stage metadata and exact anatomical renderer state. The unverified
+source observation remains available only in the Original description; it is
+not repeated or treated as evidence about any transformed stage, and the app
+does not claim Qwen inspected those renders. It commits only a complete cache, stops
+the heartbeat before deterministic text construction, restores controls, and
+publishes one readiness update through the sole polite status region. This
+revised path remains pending device and human TalkBack verification.
 
 The installed Machine Perception Node could not be reused because its inference
 service and model files are private/non-exported and its package is signed by a
@@ -325,17 +329,18 @@ When a tested entry is eligible, installation requires an affirmative
 dialog showing total size. HTTP range requests resume `.partial` files in
 app-private storage. Each declared byte length and SHA-256 must match before
 the staging directory is atomically promoted; incomplete or invalid sets are
-never reported ready. Preloading opens one model session, processes every
-current catalog stage strictly in sequence with renewed memory checks, commits
-the description cache only as a complete batch, and disposes media/tensor/model
-resources on cancellation or completion. The Android heartbeat runs through
+never reported ready. Preloading opens one model session, performs one bounded
+Original-image inference with renewed memory checks, disposes media/tensor/model
+resources, then constructs every current catalog description in strict order
+and commits only the complete batch. The Android heartbeat runs through
 `USAGE_ASSISTANCE_ACCESSIBILITY` and `CONTENT_TYPE_SONIFICATION` so it follows
 the independently controlled accessibility volume. One four-second static loop
 contains about 900 ms of pre-roll, the shared 420 ms two-note pulse amplified by
 a bounded Android-only 2.5x PCM gain (about -12 dBFS), and trailing silence. The
 player verifies its write, loop, seek, and playing results, permits one bounded
 recreation retry, and never requests audio focus or changes volume, DND, or
-sound settings. It is active only during foreground preprocessing and releases
+sound settings. It is active only during foreground Original-image preprocessing
+and inference—not deterministic description construction—and releases
 synchronously on every terminal/lifecycle path. **Test processing heartbeat**
 exercises that exact player for three pulses in about ten seconds without
 requiring a model; its Stop state and Back cancel immediately, and it cannot

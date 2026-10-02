@@ -1,5 +1,6 @@
 using System.Collections.Frozen;
 using TATAPP.Core.Caching;
+using TATAPP.Core.Workflow;
 
 namespace TATAPP.Core.OfflineAI;
 
@@ -247,8 +248,10 @@ public sealed class OfflineDescriptionCache : IDisposable
 }
 
 /// <summary>
-/// Prepares exactly one complete description batch at a time. A single model session is
-/// reused, frames are disposed stage-by-stage, and an incomplete or canceled run is never cached.
+/// Prepares exactly one complete description batch at a time. The model inspects only the
+/// Original image; derived-stage descriptions are composed from authoritative renderer metadata.
+/// The source frame and model session are disposed before composition, and incomplete or canceled
+/// work is never cached.
 /// </summary>
 public sealed class OfflineDescriptionPreloadCoordinator : IDisposable
 {
@@ -265,15 +268,23 @@ public sealed class OfflineDescriptionPreloadCoordinator : IDisposable
         this.cache = cache ?? throw new ArgumentNullException(nameof(cache));
 
     public Task<OfflineDescriptionBatch> PreloadAsync(OfflineDescriptionCacheKey key,
-        OfflineModelVariant variant, IStageDescriptionImageSource imageSource,
+        OfflineModelVariant variant, AnatomicalWorkflowState anatomy,
+        IStageDescriptionImageSource imageSource,
         IOfflineVisionSessionFactory sessionFactory, IOfflineAiCapabilityProbe capabilityProbe,
         IProgress<OfflineDescriptionProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(variant);
+        ArgumentNullException.ThrowIfNull(anatomy);
+        anatomy.Validate();
         ArgumentNullException.ThrowIfNull(imageSource);
         ArgumentNullException.ThrowIfNull(sessionFactory);
         ArgumentNullException.ThrowIfNull(capabilityProbe);
+        if (!string.Equals(key.AnatomyStateKey, anatomy.DescriptionCacheKey,
+                StringComparison.Ordinal))
+            throw new ArgumentException(
+                "The description cache key does not match the supplied anatomical state.",
+                nameof(key));
 
         lock (synchronization)
         {
@@ -287,21 +298,22 @@ public sealed class OfflineDescriptionPreloadCoordinator : IDisposable
             inFlight.Add(key, completion.Task);
             var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(
                 cancellationToken, lifetimeCancellation.Token);
-            _ = RunTrackedAsync(key, variant, imageSource, sessionFactory, capabilityProbe,
+            _ = RunTrackedAsync(key, variant, anatomy, imageSource, sessionFactory, capabilityProbe,
                 progress, linkedCancellation, completion);
             return completion.Task.WaitAsync(cancellationToken);
         }
     }
 
     private async Task RunTrackedAsync(OfflineDescriptionCacheKey key, OfflineModelVariant variant,
-        IStageDescriptionImageSource imageSource, IOfflineVisionSessionFactory sessionFactory,
+        AnatomicalWorkflowState anatomy, IStageDescriptionImageSource imageSource,
+        IOfflineVisionSessionFactory sessionFactory,
         IOfflineAiCapabilityProbe capabilityProbe, IProgress<OfflineDescriptionProgress>? progress,
         CancellationTokenSource linkedCancellation,
         TaskCompletionSource<OfflineDescriptionBatch> completion)
     {
         try
         {
-            completion.TrySetResult(await RunPreloadAsync(key, variant, imageSource,
+            completion.TrySetResult(await RunPreloadAsync(key, variant, anatomy, imageSource,
                 sessionFactory, capabilityProbe, progress, linkedCancellation.Token)
                 .ConfigureAwait(false));
         }
@@ -327,7 +339,8 @@ public sealed class OfflineDescriptionPreloadCoordinator : IDisposable
     }
 
     private async Task<OfflineDescriptionBatch> RunPreloadAsync(OfflineDescriptionCacheKey key,
-        OfflineModelVariant variant, IStageDescriptionImageSource imageSource,
+        OfflineModelVariant variant, AnatomicalWorkflowState anatomy,
+        IStageDescriptionImageSource imageSource,
         IOfflineVisionSessionFactory sessionFactory, IOfflineAiCapabilityProbe capabilityProbe,
         IProgress<OfflineDescriptionProgress>? progress, CancellationToken cancellationToken)
     {
@@ -339,41 +352,51 @@ public sealed class OfflineDescriptionPreloadCoordinator : IDisposable
             if (cache.TryGet(key, out var cached)) return cached!;
             await EnsureRuntimeHeadroomAsync(variant, capabilityProbe, sessionResident: false, cancellationToken)
                 .ConfigureAwait(false);
+            var original = TattooStageCatalog.All[0];
+            string sourceModelObservation;
+            await using (var session = await sessionFactory.OpenAsync(variant, cancellationToken)
+                             .ConfigureAwait(false))
+            {
+                await EnsureRuntimeHeadroomAsync(variant, capabilityProbe, sessionResident: true,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                await using (var image = await imageSource.RenderAsync(original,
+                                 variant.MaximumImageDimension, cancellationToken)
+                                 .ConfigureAwait(false))
+                {
+                    if (image.PixelWidth <= 0 || image.PixelHeight <= 0 ||
+                        image.PixelWidth > variant.MaximumImageDimension ||
+                        image.PixelHeight > variant.MaximumImageDimension || image.EncodedBytes.IsEmpty)
+                        throw new InvalidDataException(
+                            $"The rendered image for '{original.Name}' is invalid or exceeds the model limit.");
+
+                    await EnsureRuntimeHeadroomAsync(variant, capabilityProbe, sessionResident: true,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    sourceModelObservation = await session.DescribeAsync(new(original, image,
+                            variant.ContextTokens, variant.MaximumOutputTokens), cancellationToken)
+                        .ConfigureAwait(false);
+                }
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            if (string.IsNullOrWhiteSpace(sourceModelObservation))
+                throw new InvalidDataException(
+                    $"The local model returned no description for '{original.Name}'.");
+            sourceModelObservation = sourceModelObservation.Trim();
+
             var descriptions = new Dictionary<TattooStageKind, string>();
-            string? sourceModelObservation = null;
-            await using var session = await sessionFactory.OpenAsync(variant, cancellationToken)
-                .ConfigureAwait(false);
             for (var index = 0; index < TattooStageCatalog.All.Count; index++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                await EnsureRuntimeHeadroomAsync(variant, capabilityProbe, sessionResident: true, cancellationToken)
-                    .ConfigureAwait(false);
                 var stage = TattooStageCatalog.All[index];
-                await using var image = await imageSource.RenderAsync(stage,
-                    variant.MaximumImageDimension, cancellationToken).ConfigureAwait(false);
-                if (image.PixelWidth <= 0 || image.PixelHeight <= 0 ||
-                    image.PixelWidth > variant.MaximumImageDimension ||
-                    image.PixelHeight > variant.MaximumImageDimension || image.EncodedBytes.IsEmpty)
-                    throw new InvalidDataException($"The rendered image for '{stage.Name}' is invalid or exceeds the model limit.");
-
-                await EnsureRuntimeHeadroomAsync(variant, capabilityProbe, sessionResident: true, cancellationToken)
-                    .ConfigureAwait(false);
-
-                var modelDescription = await session.DescribeAsync(new(stage, image,
-                    sourceModelObservation, variant.ContextTokens, variant.MaximumOutputTokens),
-                    cancellationToken).ConfigureAwait(false);
-                cancellationToken.ThrowIfCancellationRequested();
-                if (string.IsNullOrWhiteSpace(modelDescription))
-                    throw new InvalidDataException($"The local model returned no description for '{stage.Name}'.");
-                modelDescription = modelDescription.Trim();
-                descriptions.Add(stage.Kind, GroundDescription(stage, modelDescription,
-                    sourceModelObservation));
-                if (stage.Kind == TattooStageKind.Original)
-                    sourceModelObservation = modelDescription;
+                descriptions.Add(stage.Kind, GroundDescription(stage, sourceModelObservation,
+                    anatomy));
                 progress?.Report(new(index + 1, TattooStageCatalog.All.Count, stage));
             }
 
             var completed = new OfflineDescriptionBatch(descriptions);
+            cancellationToken.ThrowIfCancellationRequested();
             if (!cache.Store(key, completed))
                 throw new InvalidOperationException(
                     "The complete offline-description batch exceeds its configured cache budget.");
@@ -385,25 +408,58 @@ public sealed class OfflineDescriptionPreloadCoordinator : IDisposable
         }
     }
 
-    private static string GroundDescription(TattooStage stage, string modelDescription,
-        string? sourceModelObservation)
+    private static string GroundDescription(TattooStage stage, string sourceModelObservation,
+        AnatomicalWorkflowState anatomy)
     {
         var stageNumber = TattooStageCatalog.All.TakeWhile(item => item.Kind != stage.Kind).Count() + 1;
-        var stageContext = $"Stage {stageNumber} of {TattooStageCatalog.All.Count}: {stage.Name}. {stage.Description}";
-        if (stage.Kind != TattooStageKind.Original &&
-            !string.IsNullOrWhiteSpace(sourceModelObservation) &&
-            EquivalentIgnoringWhitespace(modelDescription, sourceModelObservation))
-            return $"{stageContext} The offline model repeated its source-stage response without adding stage-specific detail. Untrusted source-model observation: {modelDescription}";
-        return $"{stageContext} Model observation: {modelDescription}";
+        var selectedSurfaceVisible = !stage.IsAnatomicalPlacement ||
+                                     RotationDistance(
+                                         AnatomicalWorkflowState.PreferredRotation(anatomy.Region),
+                                         anatomy.RotationDegrees) <= 100;
+        var stageDescription = selectedSurfaceVisible
+            ? stage.Description
+            : HiddenPlacementDescription(stage);
+        var stageContext =
+            $"Stage {stageNumber} of {TattooStageCatalog.All.Count}: {stage.Name}. {stageDescription}";
+        if (stage.Kind == TattooStageKind.Original)
+            return $"{stageContext} Unverified model observation of the current original image: {sourceModelObservation}";
+
+        var placement = stage.IsAnatomicalPlacement
+            ? " " + DescribePlacement(anatomy, selectedSurfaceVisible)
+            : string.Empty;
+        const string sourceContext =
+            " Begin original-source model context: a model-generated subject observation is available for the Original image, but it is unverified here and intentionally not repeated because this transformed stage does not reverify source color, texture, position, or placement. Return to Original image to read that model output. End original-source model context.";
+        return $"{stageContext}{placement} No stage-specific model claim is presented as current-stage fact; details not established by the deterministic renderer and placement state remain uncertain.{sourceContext}";
     }
 
-    private static bool EquivalentIgnoringWhitespace(string first, string second) =>
-        string.Equals(NormalizeWhitespace(first), NormalizeWhitespace(second),
-            StringComparison.OrdinalIgnoreCase);
+    private static string HiddenPlacementDescription(TattooStage stage)
+    {
+        var sourceStage = TattooStageCatalog.ImageStages.Single(candidate =>
+            candidate.SourceImageSliderValue == stage.SourceImageSliderValue);
+        return $"{sourceStage.Description} The design is assigned to the selected anatomical surface, but that surface is turned away, so the design is not visible in the renderer-grounded detail preview.";
+    }
 
-    private static string NormalizeWhitespace(string value) =>
-        string.Join(' ', value.Split((char[]?)null,
-            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+    private static string DescribePlacement(AnatomicalWorkflowState anatomy,
+        bool selectedSurfaceVisible)
+    {
+        var sex = anatomy.Sex == AnatomicalSex.Male ? "Male" : "Female";
+        var regionDefinition = BodyRegionCatalog.Get(anatomy.Region);
+        var camera = AnatomicalCameraFraming.ForRegion(anatomy.Region);
+        var height = AnatomicalDefaults.DescribeHeight(anatomy.HeightCentimeters);
+        var complexion = AnatomicalDefaults.SkinToneFromSlider(anatomy.SkinToneValue).Description;
+        var motion = anatomy.ReducedMotion ? "enabled" : "disabled";
+        var visibility = selectedSurfaceVisible
+            ? "The selected surface and design are visible in this renderer-grounded detail preview."
+            : "The selected surface is turned away by more than 100 degrees, so the design is not visible in this renderer-grounded detail preview.";
+        return FormattableString.Invariant(
+            $"Actual cached placement state: {sex} anatomical model; selected region: {regionDefinition.AccessibleDescription}; {height}; {complexion} complexion; saved camera control {anatomy.CameraDistance:0.0}; rotation {anatomy.RotationDegrees:0} degrees; reduced-motion mode {motion}. The renderer-grounded description uses completed placement-detail framing (focus 1.0) at the region detail distance {camera.DetailDistance:0.0}, not the saved camera control. {visibility}");
+    }
+
+    private static double RotationDistance(double first, double second)
+    {
+        var distance = Math.Abs((first - second) % 360);
+        return Math.Min(distance, 360 - distance);
+    }
 
     private static async Task EnsureRuntimeHeadroomAsync(OfflineModelVariant variant,
         IOfflineAiCapabilityProbe capabilityProbe, bool sessionResident,

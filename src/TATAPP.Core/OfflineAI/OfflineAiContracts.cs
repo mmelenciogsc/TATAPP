@@ -242,7 +242,7 @@ public interface IStageDescriptionImageSource
 }
 
 public sealed record StageDescriptionRequest(TattooStage Stage, IRenderedStageImage Image,
-    string? SourceModelObservation, int ContextTokens, int MaximumOutputTokens);
+    int ContextTokens, int MaximumOutputTokens);
 
 public interface IOfflineVisionSession : IAsyncDisposable
 {

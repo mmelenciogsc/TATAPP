@@ -72,24 +72,28 @@ moves the complete set into app-private storage.
 The current Android catalog entry is marked `tested: true` after the exact
 checksum-verified model and projector completed an offline, original-stage,
 two-call Qwen3-VL runtime smoke on an API 36 x86_64 emulator with 16 KiB pages.
-A later Poco F7 Ultra API 36 ARM64 run checksum-verified the same catalog pair
-and completed descriptions for all 16 stages with the app's in-process
-LLamaSharp/llama.cpp CPU runtime. Wi-Fi and mobile data remained disabled from
-stage 6 through stage 16; the UI reached its all-stages-ready state, stopped the
-heartbeat, and did not crash or exhaust memory. PSS fell from approximately
+A prior Poco F7 Ultra API 36 ARM64 build checksum-verified the same catalog pair
+and completed model-generated descriptions for all 16 stages. Wi-Fi and mobile
+data remained disabled from stage 6 through stage 16; the UI reached its
+all-stages-ready state, stopped the heartbeat, and did not crash or exhaust
+memory. PSS fell from approximately
 2.4 GB during active inference to approximately 302 MB after model-session
 disposal. TATAPP could not reuse the separately installed Machine Perception
 Node because that app's inference service and model files are private and
 non-exported and its package uses a different signer. This validates one
 physical full-batch workflow, not broad output quality, thermal,
 repeated-session, cancellation/recreation, or human TalkBack behavior. In
-particular, the observed anatomical-stage descriptions were weak.
+particular, the observed anatomical-stage descriptions were weak. The current
+v5 description contract therefore invokes Qwen only once on Original, labels
+that observation unverified, and constructs all 16 cached descriptions from
+authoritative stage metadata and anatomical renderer state. It does not claim
+that Qwen inspected any derived stage.
 
 A later Poco listening check found the former short timer-driven music-stream
 cue inaudible even though preprocessing completed. Android now uses the
 accessibility-volume route and keeps one four-second static loop active: about
 900 ms of pre-roll, the shared 420 ms two-note pulse at an Android-only bounded
-gain, then silence. The Offline descriptions section includes **Test processing
+gain, then silence. The Offline AI-assisted descriptions section includes **Test processing
 heartbeat**, which plays the exact production path for three pulses in about ten
 seconds and can be stopped with the same button or Back. On 2026-10-02, the
 signed 20,198,175-byte APK (SHA-256
