@@ -19,6 +19,27 @@ DEFAULT_TIMELINE = ROOT / "media/android-walkthrough/timeline.template.json"
 DEFAULT_ATTRIBUTION = ROOT / "media/android-walkthrough/attribution.template.json"
 DEFAULT_MANIFEST = ROOT / "media/android-walkthrough/final-media-manifest.template.json"
 DEFAULT_OUTPUT = ROOT / "artifacts/android-walkthrough/final"
+CAPTURE_PROVENANCE_KINDS = {"app_capture", "app_screenshot", "app_export"}
+CAPTURE_SESSION_STATES = {
+    "historical_unresolved",
+    "historical_verified",
+    "verified",
+    "awaiting_real_capture",
+}
+REQUIRED_RELEASE_FEATURES = (
+    "workspace_navigation",
+    "processing_heartbeat",
+    "offline_ai_full_ready",
+)
+SOURCE_AUDIO_PROFILES = {"dialogue", "accessibility_evidence"}
+EXPECTED_RELEASE_APPLICATION = {
+    "package": "com.grayscaleconsultants.tatapp",
+    "version_name": "0.3.1",
+    "version_code": 2,
+    "installed_apk_sha256": "7f83b72ae3f1af5024d0dade5c3a220387762ccad5ac7c4f2812cccc0e1f42c9",
+    "signing_certificate_sha256": "eac3df9aba3e08437bc988682566f072e52d2dde6bda373daa998cdee74d9f90",
+    "git_commit": "db66a1d7a0e7100906dc69b9bd705a7ae3463276",
+}
 
 
 def fail(message: str) -> None:
@@ -67,6 +88,22 @@ def require_tools(*names: str) -> None:
     missing = [name for name in names if shutil.which(name) is None]
     if missing:
         fail("missing required command(s): " + ", ".join(missing))
+
+
+def is_sha256(value: object) -> bool:
+    return isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value) is not None
+
+
+def capture_application(session: dict) -> dict:
+    application = session.get("application", {})
+    return {
+        "package": application.get("package"),
+        "version_name": application.get("version_name"),
+        "version_code": application.get("version_code"),
+        "installed_apk_sha256": application.get("apk_sha256"),
+        "signing_certificate_sha256": application.get("signing_certificate_sha256"),
+        "git_commit": application.get("git_commit"),
+    }
 
 
 def load_json(path: Path) -> dict:
@@ -176,6 +213,40 @@ def validate_configuration(timeline: dict, attribution: dict) -> list[str]:
         if sha256(path) != tools.get(hash_key):
             fail(f"{key} checksum does not match the timeline")
 
+    sessions = timeline.get("capture_sessions")
+    target_session_id = timeline.get("release_target_capture_session")
+    if not isinstance(sessions, dict) or not sessions:
+        fail("timeline.capture_sessions must be a nonempty object")
+    if not isinstance(target_session_id, str) or target_session_id not in sessions:
+        fail("release_target_capture_session must name a declared capture session")
+    for session_id, session in sessions.items():
+        state = session.get("state")
+        if state not in CAPTURE_SESSION_STATES:
+            fail(f"capture session {session_id} has invalid state {state!r}")
+        if state != "awaiting_real_capture" and not session.get("capture_date"):
+            fail(f"capture session {session_id} has no capture date")
+        application = capture_application(session)
+        if (
+            not application["package"]
+            or not application["version_name"]
+            or not isinstance(application["version_code"], int)
+            or application["version_code"] <= 0
+            or not (
+                is_sha256(application["installed_apk_sha256"])
+                or (
+                    state == "historical_unresolved"
+                    and application["installed_apk_sha256"] is None
+                )
+            )
+            or not is_sha256(application["signing_certificate_sha256"])
+        ):
+            fail(f"capture session {session_id} has invalid application identity")
+        commit = application["git_commit"]
+        if commit is not None and not re.fullmatch(r"[0-9a-f]{40}", str(commit)):
+            fail(f"capture session {session_id} has an invalid Git commit")
+        if session_id == target_session_id and commit is None:
+            fail("the release-target capture session must declare its Git commit")
+
     sources = timeline.get("sources")
     if not isinstance(sources, dict) or not sources:
         fail("timeline.sources must be a nonempty object")
@@ -183,6 +254,23 @@ def validate_configuration(timeline: dict, attribution: dict) -> list[str]:
         state = source.get("state")
         expected_hash = source.get("sha256")
         path = repo_path(str(source.get("path", "")))
+        provenance_kind = source.get("provenance_kind")
+        capture_session_id = source.get("capture_session")
+        if provenance_kind in CAPTURE_PROVENANCE_KINDS:
+            if capture_session_id not in sessions:
+                fail(f"source {source_id} has no declared capture session")
+            if (
+                state != "awaiting_real_capture"
+                and sessions[capture_session_id].get("state") == "awaiting_real_capture"
+            ):
+                fail(
+                    f"source {source_id} claims captured media from an awaiting session"
+                )
+        elif provenance_kind == "licensed_asset":
+            if capture_session_id is not None:
+                fail(f"licensed source {source_id} cannot declare a capture session")
+        else:
+            fail(f"source {source_id} has invalid provenance_kind")
         if state == "awaiting_real_capture":
             if expected_hash is not None:
                 fail(
@@ -194,7 +282,7 @@ def validate_configuration(timeline: dict, attribution: dict) -> list[str]:
             continue
         if not path.is_file():
             fail(f"source is missing: {source_id}={path}")
-        if not re.fullmatch(r"[0-9a-f]{64}", str(expected_hash or "")):
+        if not is_sha256(expected_hash):
             fail(f"source {source_id} has no valid SHA-256")
         if sha256(path) != expected_hash:
             fail(f"source checksum mismatch: {source_id}")
@@ -212,18 +300,22 @@ def validate_configuration(timeline: dict, attribution: dict) -> list[str]:
     segments = timeline.get("segments")
     if not isinstance(segments, list) or not segments:
         fail("timeline.segments must be a nonempty array")
-    identifiers: set[str] = set()
+    identifiers = [str(segment.get("id", "")) for segment in segments]
+    if any(not identifier for identifier in identifiers) or len(identifiers) != len(
+        set(identifiers)
+    ):
+        fail("timeline contains an empty or duplicate segment id")
+    release_features: set[str] = set()
+    enabled_claims = 0
     for segment in segments:
-        segment_id = str(segment.get("id", ""))
-        if not segment_id or segment_id in identifiers:
-            fail(f"invalid or duplicate segment id: {segment_id!r}")
-        identifiers.add(segment_id)
+        segment_id = str(segment["id"])
+        enabled = segment.get("enabled", True)
+        if not isinstance(enabled, bool):
+            fail(f"segment {segment_id} enabled must be true or false")
         if segment.get("kind") not in ("capture", "still"):
             fail(f"segment {segment_id} has unsupported kind")
         if segment.get("source") not in sources:
             fail(f"segment {segment_id} references an unknown source")
-        if float(segment.get("duration", 0)) <= 0:
-            fail(f"segment {segment_id} must have a positive duration")
         source = sources[segment["source"]]
         if source.get("dimensions", [1080, 2400]) != [1080, 2400]:
             fail(f"segment {segment_id} phone source must be an exact 1080x2400 image")
@@ -247,35 +339,89 @@ def validate_configuration(timeline: dict, attribution: dict) -> list[str]:
             or crop[1] + crop[3] > magnifier_dimensions[1]
         ):
             fail(f"segment {segment_id} crop must fit its magnifier source")
-        enabled = segment.get("enabled", True)
-        if enabled and source.get("state") == "awaiting_real_capture":
+
+        release_feature = segment.get("release_feature")
+        if release_feature is not None:
+            if release_feature not in REQUIRED_RELEASE_FEATURES:
+                fail(f"segment {segment_id} declares an unknown release feature")
+            if release_feature in release_features:
+                fail(f"release feature {release_feature} is declared more than once")
+            release_features.add(release_feature)
+        audio_profile = segment.get("source_audio_profile", "dialogue")
+        if audio_profile not in SOURCE_AUDIO_PROFILES:
+            fail(f"segment {segment_id} has an unknown source audio profile")
+        if audio_profile == "accessibility_evidence" and (
+            segment.get("kind") != "capture"
+            or not segment.get("retain_source_audio")
+            or segment.get("narration")
+        ):
+            fail(
+                f"segment {segment_id} accessibility evidence must retain only capture audio"
+            )
+
+        if not enabled:
+            if source.get("state") != "awaiting_real_capture" and (
+                segment.get("duration") is None or segment.get("source_start") is None
+            ):
+                fail(
+                    f"disabled segment {segment_id} may omit timing only while its source awaits capture"
+                )
+            continue
+        try:
+            duration = float(segment.get("duration", 0))
+            playback_rate = float(segment.get("playback_rate", 1.0))
+        except (TypeError, ValueError):
+            fail(f"segment {segment_id} has invalid numeric timing")
+        if duration <= 0:
+            fail(f"segment {segment_id} must have a positive duration")
+        if source.get("state") == "awaiting_real_capture":
             fail(f"segment {segment_id} enables a source that has not been captured")
-        if enabled and magnifier_source.get("state") == "awaiting_real_capture":
+        if magnifier_source.get("state") == "awaiting_real_capture":
             fail(
                 f"segment {segment_id} enables a magnifier source that has not been captured"
             )
-        playback_rate = float(segment.get("playback_rate", 1.0))
         if not 0.25 <= playback_rate <= 4.0:
             fail(f"segment {segment_id} playback rate must be between 0.25 and 4")
         if segment["kind"] != "capture" and playback_rate != 1.0:
             fail(f"still segment {segment_id} cannot declare a playback rate")
-        if enabled and segment.get("claim") == "offline_ai_ready":
+        if release_feature is not None:
+            if source.get("capture_session") != target_session_id:
+                fail(
+                    f"release segment {segment_id} does not use the release-target capture session"
+                )
+            if sessions[target_session_id].get("state") != "verified":
+                fail(
+                    f"release segment {segment_id} enables an unverified release-target session"
+                )
+        if segment.get("claim") == "offline_ai_ready":
+            enabled_claims += 1
             if source.get("state") != "verified" or not source.get("sha256"):
                 fail(
                     "Offline AI readiness cannot be enabled without a verified real capture and SHA-256"
                 )
-        if enabled and segment.get("narration") and segment.get("retain_source_audio"):
+        if segment.get("narration") and segment.get("retain_source_audio"):
             fail(
                 f"segment {segment_id} cannot overlap narration and retained system speech"
             )
-        if enabled and segment["kind"] == "capture":
+        replacement = segment.get("replaces_segment")
+        if replacement is not None:
+            if replacement not in identifiers:
+                fail(f"segment {segment_id} replaces an unknown segment")
+            replaced = next(item for item in segments if item["id"] == replacement)
+            if replaced.get("enabled", True):
+                fail(
+                    f"segment {segment_id} cannot be enabled until {replacement} is disabled"
+                )
+        if segment["kind"] == "capture":
             source_path = repo_path(source["path"])
-            source_start = float(segment.get("source_start", 0))
+            try:
+                source_start = float(segment.get("source_start", 0))
+            except (TypeError, ValueError):
+                fail(f"segment {segment_id} has invalid source_start")
             if segment.get("retain_source_audio") and playback_rate != 1.0:
                 fail(f"segment {segment_id} cannot speed retained system audio")
-            if (
-                source_start < 0
-                or source_start + float(segment["duration"]) * playback_rate
+            if source_start < 0 or (
+                source_start + duration * playback_rate
                 > probe_duration(source_path) + 0.050
             ):
                 fail(f"segment {segment_id} exceeds its capture bounds")
@@ -284,10 +430,9 @@ def validate_configuration(timeline: dict, attribution: dict) -> list[str]:
                     f"segment {segment_id} requests retained audio but its capture has none"
                 )
         cue = segment.get("srt")
-        if enabled and cue:
+        if cue:
             start = float(cue.get("start_offset", -1))
             end = float(cue.get("end_offset", -1))
-            duration = float(segment["duration"])
             if not (0 <= start < end <= duration):
                 fail(f"segment {segment_id} has invalid SRT offsets")
             words = len(
@@ -299,6 +444,14 @@ def validate_configuration(timeline: dict, attribution: dict) -> list[str]:
                 )
             if segment.get("narration") or segment.get("retain_source_audio"):
                 fail(f"segment {segment_id} SRT overlaps a declared speech segment")
+    missing_feature_plans = set(REQUIRED_RELEASE_FEATURES) - release_features
+    if missing_feature_plans:
+        fail(
+            "timeline omits required release-feature plans: "
+            + ", ".join(sorted(missing_feature_plans))
+        )
+    if enabled_claims > 1:
+        fail("only one Offline AI ready claim segment may be enabled")
 
     if attribution.get("schema_version") != 1 or not attribution.get("assets"):
         fail("attribution template is missing its asset records")
@@ -515,10 +668,13 @@ def render_segment(
         f"{fade}[v]"
     )
 
+    audio_profile = segment.get("source_audio_profile", "dialogue")
     speech_label: str | None = None
+    music_filter = "volume=0," if audio_profile == "accessibility_evidence" else ""
     audio_filter = (
         f"[{music_index}:a]atrim=0:{duration},asetpts=PTS-STARTPTS,aresample=48000,"
-        "aformat=sample_rates=48000:sample_fmts=fltp:channel_layouts=stereo[music];"
+        "aformat=sample_rates=48000:sample_fmts=fltp:channel_layouts=stereo,"
+        f"{music_filter}anull[music];"
     )
     if narration is not None:
         narration_index = music_index + 1
@@ -528,24 +684,36 @@ def render_segment(
         )
         speech_label = "speech"
     elif kind == "capture" and segment.get("retain_source_audio", False):
-        audio_filter += (
-            f"[0:a]apad=whole_dur={duration},atrim=0:{duration},asetpts=PTS-STARTPTS,"
-            "aresample=48000,aformat=sample_rates=48000:sample_fmts=fltp:channel_layouts=stereo,"
-            "highpass=f=65,lowpass=f=12000,dynaudnorm=f=200:g=15:p=0.70:m=7:r=0.10:s=5,"
-            "volume=0.70[speechbase];"
-        )
-        speech_label = "speech"
+        if audio_profile == "accessibility_evidence":
+            audio_filter += (
+                f"[0:a]apad=whole_dur={duration},atrim=0:{duration},asetpts=PTS-STARTPTS,"
+                "aresample=48000,aformat=sample_rates=48000:sample_fmts=fltp:"
+                "channel_layouts=stereo,volume=1.0[evidence];"
+            )
+            speech_label = "evidence"
+        else:
+            audio_filter += (
+                f"[0:a]apad=whole_dur={duration},atrim=0:{duration},asetpts=PTS-STARTPTS,"
+                "aresample=48000,aformat=sample_rates=48000:sample_fmts=fltp:channel_layouts=stereo,"
+                "highpass=f=65,lowpass=f=12000,dynaudnorm=f=200:g=15:p=0.70:m=7:r=0.10:s=5,"
+                "volume=0.70[speechbase];"
+            )
+            speech_label = "speech"
     if use_transition_sfx:
         sfx_index = music_index + 2 if narration is not None else music_index + 1
         audio_filter += (
             f"[{sfx_index}:a]apad=whole_dur={duration},atrim=0:{duration},asetpts=PTS-STARTPTS,"
             "aresample=48000,aformat=sample_rates=48000:sample_fmts=fltp:channel_layouts=stereo[sfx];"
         )
-    if speech_label:
+    if speech_label == "speech":
         audio_filter += (
             "[speechbase]asplit=2[speechside][speechmix];"
             "[music][speechside]sidechaincompress=threshold=0.020:ratio=8:attack=120:release=900:knee=6[ducked];"
             "[ducked][speechmix]amix=inputs=2:duration=longest:normalize=0[program];"
+        )
+    elif speech_label == "evidence":
+        audio_filter += (
+            "[music][evidence]amix=inputs=2:duration=longest:normalize=0[program];"
         )
     else:
         audio_filter += "[music]anull[program];"
@@ -648,9 +816,34 @@ def main() -> None:
     manifest_template = load_json(args.manifest_template)
     if manifest_template.get("schema_version") != 1 or not all(
         isinstance(manifest_template.get(key), dict)
-        for key in ("capture", "application", "offline_ai", "render", "outputs")
+        for key in (
+            "capture",
+            "application",
+            "capture_sessions",
+            "source_provenance",
+            "release_capture_requirements",
+            "offline_ai",
+            "render",
+            "outputs",
+        )
     ):
         fail("manifest template is missing required version-1 sections")
+    target_session_id = timeline.get("release_target_capture_session")
+    if (
+        manifest_template["capture"].get("provenance_model")
+        != "per_source_capture_session"
+        or manifest_template["capture"].get("release_target_capture_session")
+        != target_session_id
+    ):
+        fail("manifest and timeline disagree on the release-target capture session")
+    target_session = timeline.get("capture_sessions", {}).get(target_session_id, {})
+    if (
+        capture_application(target_session) != EXPECTED_RELEASE_APPLICATION
+        or manifest_template["application"] != EXPECTED_RELEASE_APPLICATION
+    ):
+        fail(
+            "release-target capture session does not match manifest application identity"
+        )
     warnings = validate_configuration(timeline, attribution)
     enabled = [
         segment for segment in timeline["segments"] if segment.get("enabled", True)
@@ -846,7 +1039,7 @@ def main() -> None:
                 "-i",
                 str(premaster),
                 "-af",
-                "loudnorm=I=-16:TP=-1.8:LRA=7:print_format=json",
+                "loudnorm=I=-16:TP=-1.8:LRA=6:print_format=json",
                 "-f",
                 "null",
                 "-",
@@ -860,10 +1053,10 @@ def main() -> None:
             fail("loudness analysis failed\n" + analysis.stderr)
         loudness = parse_loudness(analysis.stderr)
         loudnorm = (
-            "loudnorm=I=-16:TP=-1.8:LRA=7:"
+            "loudnorm=I=-16:TP=-1.8:LRA=6:"
             f"measured_I={loudness['input_i']}:measured_TP={loudness['input_tp']}:"
             f"measured_LRA={loudness['input_lra']}:measured_thresh={loudness['input_thresh']}:"
-            f"offset={loudness['target_offset']}:linear=true,"
+            f"offset={loudness['target_offset']}:linear=false,"
             "alimiter=limit=0.75:attack=5:release=50:level=false"
         )
         run(
@@ -982,13 +1175,20 @@ def main() -> None:
                 {
                     "id": segment["id"],
                     "source": segment["source"],
+                    "source_capture_session": timeline["sources"][
+                        segment["source"]
+                    ].get("capture_session"),
                     "magnifier_source": segment.get("magnifier_source"),
                     "playback_rate": float(segment.get("playback_rate", 1.0)),
                     "start": start,
                     "end": end,
                     "duration": duration,
                     "claim": segment.get("claim"),
+                    "release_feature": segment.get("release_feature"),
                     "retained_system_audio": bool(segment.get("retain_source_audio")),
+                    "source_audio_profile": segment.get(
+                        "source_audio_profile", "dialogue"
+                    ),
                     "tts_narration": bool(segment.get("narration")),
                 }
             )
@@ -1004,6 +1204,14 @@ def main() -> None:
         resolved_timeline = {
             "schema_version": 1,
             "source_template_sha256": sha256(args.timeline.resolve()),
+            "release_target_capture_session": timeline[
+                "release_target_capture_session"
+            ],
+            "capture_sessions": timeline["capture_sessions"],
+            "source_provenance": {
+                source_id: dict(source)
+                for source_id, source in timeline["sources"].items()
+            },
             "output": settings,
             "duration_seconds": total_duration,
             "segments": resolved_segments,
@@ -1049,13 +1257,27 @@ def main() -> None:
         manifest["render"]["verifier_sha256"] = (
             sha256(verifier) if verifier.is_file() else None
         )
+        manifest["capture_sessions"] = timeline["capture_sessions"]
+        manifest["source_provenance"] = resolved_timeline["source_provenance"]
+        manifest["release_capture_requirements"] = {
+            feature: any(
+                segment.get("release_feature") == feature for segment in enabled
+            )
+            for feature in REQUIRED_RELEASE_FEATURES
+        }
         ai_ready_segments = [
             item["segment"]
             for item in rendered
             if item["segment"].get("claim") == "offline_ai_ready"
         ]
+        if len(ai_ready_segments) > 1:
+            fail("only one Offline AI ready claim segment may be rendered")
         ai_ready_included = bool(ai_ready_segments)
-        ai_ready_source = timeline["sources"].get("ai_ready_capture", {})
+        ai_ready_source = (
+            timeline["sources"][ai_ready_segments[0]["source"]]
+            if ai_ready_included
+            else {}
+        )
         manifest["offline_ai"].update(
             {
                 "ready_clip_state": (
@@ -1068,6 +1290,11 @@ def main() -> None:
                 ),
                 "ready_clip_sha256": (
                     ai_ready_source.get("sha256") if ai_ready_included else None
+                ),
+                "ready_capture_session": (
+                    ai_ready_source.get("capture_session")
+                    if ai_ready_included
+                    else None
                 ),
                 "full_preload_claim_allowed": ai_ready_included,
             }

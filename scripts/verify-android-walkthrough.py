@@ -19,7 +19,30 @@ REQUIRED_HUMAN_GATES = (
     "speech_and_music_balance",
     "stage_and_export_fidelity",
     "privacy_review",
+    "workspace_navigation_talkback",
+    "heartbeat_three_pulses_and_talkback",
+    "full_ai_single_ready_announcement",
 )
+CAPTURE_PROVENANCE_KINDS = {"app_capture", "app_screenshot", "app_export"}
+CAPTURE_SESSION_STATES = {
+    "historical_unresolved",
+    "historical_verified",
+    "verified",
+    "awaiting_real_capture",
+}
+REQUIRED_RELEASE_FEATURES = (
+    "workspace_navigation",
+    "processing_heartbeat",
+    "offline_ai_full_ready",
+)
+EXPECTED_RELEASE_APPLICATION = {
+    "package": "com.grayscaleconsultants.tatapp",
+    "version_name": "0.3.1",
+    "version_code": 2,
+    "installed_apk_sha256": "7f83b72ae3f1af5024d0dade5c3a220387762ccad5ac7c4f2812cccc0e1f42c9",
+    "signing_certificate_sha256": "eac3df9aba3e08437bc988682566f072e52d2dde6bda373daa998cdee74d9f90",
+    "git_commit": "db66a1d7a0e7100906dc69b9bd705a7ae3463276",
+}
 
 
 def fail(message: str) -> None:
@@ -32,6 +55,22 @@ def sha256(path: Path) -> str:
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def is_sha256(value: object) -> bool:
+    return isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value) is not None
+
+
+def capture_application(session: dict) -> dict:
+    application = session.get("application", {})
+    return {
+        "package": application.get("package"),
+        "version_name": application.get("version_name"),
+        "version_code": application.get("version_code"),
+        "installed_apk_sha256": application.get("apk_sha256"),
+        "signing_certificate_sha256": application.get("signing_certificate_sha256"),
+        "git_commit": application.get("git_commit"),
+    }
 
 
 def load_json(path: Path) -> dict:
@@ -195,6 +234,138 @@ def close(left: float, right: float, tolerance: float) -> bool:
     return abs(left - right) <= tolerance
 
 
+def verify_capture_provenance(manifest: dict, timeline: dict) -> list[str]:
+    capture = manifest.get("capture", {})
+    target_session_id = capture.get("release_target_capture_session")
+    if capture.get("provenance_model") != "per_source_capture_session":
+        fail("manifest must use per-source capture-session provenance")
+    sessions = manifest.get("capture_sessions")
+    if not isinstance(sessions, dict) or target_session_id not in sessions:
+        fail("manifest release-target capture session is missing")
+    if timeline.get("release_target_capture_session") != target_session_id:
+        fail("manifest and resolved timeline disagree on the release-target session")
+    if timeline.get("capture_sessions") != sessions:
+        fail("manifest and resolved timeline capture sessions differ")
+
+    application = manifest.get("application", {})
+    if (
+        capture_application(sessions[target_session_id]) != EXPECTED_RELEASE_APPLICATION
+        or application != EXPECTED_RELEASE_APPLICATION
+    ):
+        fail("release-target session application identity differs from the manifest")
+    for session_id, session in sessions.items():
+        state = session.get("state")
+        if state not in CAPTURE_SESSION_STATES:
+            fail(f"capture session {session_id} has invalid state {state!r}")
+        if state != "awaiting_real_capture" and not session.get("capture_date"):
+            fail(f"capture session {session_id} has no capture date")
+        session_application = capture_application(session)
+        if (
+            not session_application["package"]
+            or not session_application["version_name"]
+            or not isinstance(session_application["version_code"], int)
+            or session_application["version_code"] <= 0
+            or not (
+                is_sha256(session_application["installed_apk_sha256"])
+                or (
+                    state == "historical_unresolved"
+                    and session_application["installed_apk_sha256"] is None
+                )
+            )
+            or not is_sha256(session_application["signing_certificate_sha256"])
+        ):
+            fail(f"capture session {session_id} has invalid application identity")
+        commit = session_application["git_commit"]
+        if commit is not None and not re.fullmatch(r"[0-9a-f]{40}", str(commit)):
+            fail(f"capture session {session_id} has an invalid Git commit")
+        if session_id == target_session_id and commit is None:
+            fail("release-target capture session has no Git commit")
+
+    provenance = manifest.get("source_provenance")
+    if not isinstance(provenance, dict) or not provenance:
+        fail("manifest source provenance is missing")
+    if timeline.get("source_provenance") != provenance:
+        fail("manifest and resolved timeline source provenance differ")
+    for source_id, source in provenance.items():
+        kind = source.get("provenance_kind")
+        session_id = source.get("capture_session")
+        state = source.get("state")
+        if kind in CAPTURE_PROVENANCE_KINDS:
+            if session_id not in sessions:
+                fail(f"source {source_id} has no declared capture session")
+            if (
+                state != "awaiting_real_capture"
+                and sessions[session_id].get("state") == "awaiting_real_capture"
+            ):
+                fail(f"source {source_id} belongs to an awaiting capture session")
+        elif kind == "licensed_asset":
+            if session_id is not None:
+                fail(f"licensed source {source_id} declares a capture session")
+        else:
+            fail(f"source {source_id} has invalid provenance kind")
+        if state == "awaiting_real_capture":
+            if source.get("sha256") is not None:
+                fail(f"awaiting source {source_id} has an unverified checksum")
+            continue
+        verify_evidence_record(source, f"source provenance {source_id}")
+
+    session_bound_records = [
+        *(manifest.get("workflow_evidence") or []),
+        *(manifest.get("offline_ai", {}).get("ui_evidence") or []),
+        manifest.get("offline_ai", {}).get("network_isolation_evidence", {}),
+    ]
+    for index, record in enumerate(session_bound_records, 1):
+        if (
+            not isinstance(record, dict)
+            or record.get("capture_session") not in sessions
+        ):
+            fail(f"session-bound evidence {index} has no declared capture session")
+
+    segments = timeline.get("segments", [])
+    requirements = manifest.get("release_capture_requirements")
+    if not isinstance(requirements, dict) or set(requirements) != set(
+        REQUIRED_RELEASE_FEATURES
+    ):
+        fail("manifest release-capture requirements are malformed")
+    feature_counts = {
+        feature: sum(segment.get("release_feature") == feature for segment in segments)
+        for feature in REQUIRED_RELEASE_FEATURES
+    }
+    if any(count > 1 for count in feature_counts.values()):
+        fail("a required release feature is represented by multiple segments")
+    derived_requirements = {
+        feature: feature_counts[feature] == 1 for feature in REQUIRED_RELEASE_FEATURES
+    }
+    if requirements != derived_requirements:
+        fail("manifest release-capture requirements disagree with the resolved edit")
+    for segment in segments:
+        feature = segment.get("release_feature")
+        if feature is None:
+            continue
+        if feature not in REQUIRED_RELEASE_FEATURES:
+            fail(f"resolved segment {segment.get('id')} has an unknown release feature")
+        source_id = segment.get("source")
+        source = provenance.get(source_id, {})
+        if (
+            segment.get("source_capture_session") != target_session_id
+            or source.get("capture_session") != target_session_id
+            or source.get("state") != "verified"
+            or sessions[target_session_id].get("state") != "verified"
+        ):
+            fail(
+                f"release feature {feature} does not use verified release-target capture"
+            )
+        if (
+            not segment.get("retained_system_audio")
+            or segment.get("tts_narration")
+            or segment.get("source_audio_profile") != "accessibility_evidence"
+        ):
+            fail(
+                f"release feature {feature} does not use the accessibility-evidence audio profile"
+            )
+    return [feature for feature, included in requirements.items() if not included]
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -246,6 +417,8 @@ def main() -> None:
             fail(f"workflow evidence {index} is not an object")
         verify_evidence_record(record, f"workflow evidence {index}")
 
+    timeline = load_json(timeline_path)
+    incomplete_release_captures = verify_capture_provenance(manifest, timeline)
     unresolved = unresolved_values(manifest)
     attribution = load_json(attribution_path)
     blockers = list(attribution.get("release_blockers", []))
@@ -254,7 +427,9 @@ def main() -> None:
         for key in REQUIRED_HUMAN_GATES
         if manifest.get("human_verification", {}).get(key) is not True
     ]
-    if not args.review and (unresolved or blockers or incomplete_human):
+    if not args.review and (
+        unresolved or blockers or incomplete_human or incomplete_release_captures
+    ):
         fail(
             "release evidence is incomplete: "
             + "; ".join(
@@ -269,6 +444,9 @@ def main() -> None:
                         else "",
                         "human gates=" + ",".join(incomplete_human)
                         if incomplete_human
+                        else "",
+                        "release captures=" + ",".join(incomplete_release_captures)
+                        if incomplete_release_captures
                         else "",
                     ],
                 )
@@ -441,7 +619,6 @@ def main() -> None:
         if not close(declared, actual, 0.05):
             fail(f"manifest outputs.{key} does not match the post-encode measurement")
 
-    timeline = load_json(timeline_path)
     output_contract = timeline.get("output", {})
     required_output_contract = {
         "width": 1920,
@@ -508,8 +685,20 @@ def main() -> None:
             or not close(actual["end"], float(expected.get("end", -1)), 0.001)
         ):
             fail(f"SRT cue {actual['index']} does not match the resolved timeline")
-    if timeline.get("offline_ai_ready_claim_included"):
+    ai_ready_segments = [
+        segment
+        for segment in timeline.get("segments", [])
+        if segment.get("claim") == "offline_ai_ready"
+    ]
+    if len(ai_ready_segments) > 1:
+        fail("resolved timeline contains multiple Offline AI ready claims")
+    if timeline.get("offline_ai_ready_claim_included") != bool(ai_ready_segments):
+        fail("resolved timeline Offline AI claim flag is inconsistent")
+    if ai_ready_segments:
         offline = manifest.get("offline_ai", {})
+        ai_source = manifest["source_provenance"].get(
+            ai_ready_segments[0].get("source"), {}
+        )
         if offline.get("ready_clip_state") != "verified" or not offline.get(
             "ready_clip_sha256"
         ):
@@ -518,6 +707,14 @@ def main() -> None:
             fail(
                 "the edit claims Offline AI ready while its manifest claim gate is false"
             )
+        if (
+            offline.get("ready_clip_path") != ai_source.get("path")
+            or offline.get("ready_clip_sha256") != ai_source.get("sha256")
+            or offline.get("ready_capture_session") != ai_source.get("capture_session")
+            or ai_ready_segments[0].get("source_capture_session")
+            != ai_source.get("capture_session")
+        ):
+            fail("Offline AI ready metadata differs from its source provenance")
         verify_evidence_record(
             {
                 "path": offline.get("ready_clip_path"),
@@ -590,6 +787,7 @@ def main() -> None:
         "srt": {"cue_count": len(cues), "maximum_wpm": max(cue["wpm"] for cue in cues)},
         "unresolved_provenance": unresolved,
         "incomplete_human_gates": incomplete_human,
+        "incomplete_release_captures": incomplete_release_captures,
         "diagnostics": {
             "blackdetect": [line for line in black.splitlines() if "black_" in line],
             "freezedetect": [line for line in freeze.splitlines() if "freeze_" in line],

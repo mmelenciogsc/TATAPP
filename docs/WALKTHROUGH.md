@@ -32,3 +32,40 @@ The demonstration artwork was obtained from Wikimedia Commons and sources discov
 The spoken tutorial and SASRT have separate jobs. Piper explains actions and intent. The SASRT contributes only unavailable visual facts: composition, spatial state, visible transformation results, save confirmation, and the closing comparison. Cue windows are planned at 180 words per minute, do not overlap Piper narration, remain inside the exact media duration, and leave the entire recorded JAWS demonstration free of competing SASRT speech.
 
 Audio mastering is reproducible through `scripts/remaster-walkthrough-audio.sh`. Each Piper cue is normalized independently. Recorded system audio is gated to the four requested JAWS description windows, normalized in short windows, reduced by 3.1 dB, and softly faded at every boundary; all slider, dialog, progress, and non-wolf JAWS speech is excluded. Interface tones use a bounded expression, and the complete mixed program receives smooth boundary fades before measured two-pass normalization to -16 LUFS with a -1.5 dB true-peak ceiling. Recording and rendering use bounded queues, no parallel segment jobs, two FFmpeg threads, and a free-memory preflight before each process; interrupted jobs retain their completed intermediates for a safe retry.
+
+## Android release-evidence edit
+
+The Android walkthrough has a separate reproducible pipeline under
+`media/android-walkthrough/` and `scripts/render-android-walkthrough.py`. Its
+release target is TATAPP 0.3.1/code 2 at commit
+`db66a1d7a0e7100906dc69b9bd705a7ae3463276`; the timeline records the exact APK
+and signing-certificate hashes. Each app-derived input records its own capture
+session, so historical 0.3.0 footage remains traceable but cannot prove behavior
+of the 0.3.1 release target.
+
+The Android walkthrough now uses three checksum-locked Poco/TalkBack recordings
+from that exact target: workspace navigation, direct processing with three
+heartbeat pulses, and the complete Offline AI preload-to-ready flow with one
+ready announcement. Their measured edit windows and source hashes are recorded
+in `media/android-walkthrough/timeline.template.json`; the historical 0.3.0 AI
+ready segment is disabled. The release-target APK SHA-256 is
+`7f83b72ae3f1af5024d0dade5c3a220387762ccad5ac7c4f2812cccc0e1f42c9`.
+Automated media and provenance checks do not mark any human-review gate true.
+
+Accessibility-evidence segments retain captured system sound without variable
+gain while muting music, narration, and generated effects. This lets a human
+reviewer judge the timing and relative level of TalkBack and the actual app
+heartbeat. A successful automated verifier run does not replace the required
+speaker/headphone, TalkBack-navigation, three-pulse, single-ready-announcement,
+visual-fidelity, and privacy checks.
+
+The current Android review master is
+`artifacts/android-walkthrough/final/TATAPP-Android-accessible-walkthrough.mp4`
+(39,618,709 bytes; SHA-256
+`008e67a3b6822b815bf969f008f0dbc7dcebb647a282a48dc543ac4d69039e5e`).
+Its screen-reader-accessible SRT is adjacent to it with SHA-256
+`74e7db8df80e95305eb03c9b8c69efdf19019e289edfd056399781d1a6a6557d`.
+Automated review passed full decoding, 13,251 CFR frames, 441.700 seconds,
+-16.2 LUFS, -2.2 dBTP, and all three non-overlapping SASRT cues. The generated
+15-frame keyframe contact sheet remains a review aid, not a substitute for a
+complete human watch and listen.

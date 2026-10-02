@@ -145,8 +145,8 @@ validated native ABI folders are present; otherwise it prints an explicit
 skip. Connected-device instrumentation is a separate opt-in command documented
 in [docs/ANDROID.md](docs/ANDROID.md).
 
-The recorded release based on commit `b29bb63` built the full solution in
-Release with warnings as errors and 0 warnings/0 errors; Core passed 44/44. The
+The Android 0.3.1 application source at commit `db66a1d` built the full solution
+in Release with warnings as errors and 0 warnings/0 errors; Core passed 51/51. The
 WPF project compiled with 0 warnings/0 errors on Linux, but its runtime tests
 could not run there because `Microsoft.WindowsDesktop.App` 10.0 is unavailable.
 API 36 x86_64 16 KiB-emulator instrumentation recorded 27 passed, 0 failed,
@@ -158,25 +158,20 @@ but HyperOS rejected the temporary harness with
 `INSTALL_FAILED_USER_RESTRICTED`; it is not a new harness pass, so the earlier
 27-pass run remains historical evidence.
 
-The 0.3.1 release script emits
-`artifacts/android/TATAPP-0.3.1-evaluation-arm64-x86_64.apk` and its adjacent
-`.sha256` file after external signing and verification. The most recently signed
-and physically checked artifact remains the historical 0.3.0 APK (20,198,175
-bytes, SHA-256
-`7e9469cdf2c8f87e52c6b5fce8d546f14159eb5358d601b7c3f1d3c095715a77`;
+The signed and physically checked 0.3.1 evaluation artifact is
+`artifacts/android/TATAPP-0.3.1-evaluation-arm64-x86_64.apk` (20,198,175 bytes,
+SHA-256
+`7f83b72ae3f1af5024d0dade5c3a220387762ccad5ac7c4f2812cccc0e1f42c9`;
 signer SHA-256
 `eac3df9aba3e08437bc988682566f072e52d2dde6bda373daa998cdee74d9f90`). It
 contains `arm64-v8a` and `x86_64`, targets API 36 with minimum API 26, declares
 only `INTERNET`, passed v2/v3 signature checks, and has all 132 packaged ELF
-files 16 KiB aligned. Install, cold offline launch, and same-version `-r`
-installation passed on the emulator. An API 32 ARM64 Rokid accepted a fresh
-install and resumed the Activity, but no human visual or accessibility review
-was performed there. An API 36 ARM64 Poco accepted the same-signed capture build
-and completed the offline-AI workflow described above. The final isolated APK
-then replacement-installed on the Poco; the pulled `base.apk` matched it
-byte-for-byte and cold launch completed in 256 ms. The full AI workflow was not
-attributed to that later publish. An available `armeabi-v7a` watch is outside the
-supported ABI set. Full evidence and the remaining non-claims are in
+files 16 KiB aligned. The Poco accepted this exact APK, its pulled `base.apk`
+matched byte-for-byte, and cold and offline launches passed. The external
+evaluation keystore remains outside Git. A true older-version-to-0.3.1 upgrade
+and the full manual TalkBack script remain unverified.
+An available `armeabi-v7a` watch is outside the supported ABI set. Full evidence
+and the remaining non-claims are in
 [docs/ANDROID.md](docs/ANDROID.md).
 
 On Windows 11 with .NET SDK 10.0.401, the original application remains:

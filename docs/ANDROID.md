@@ -479,10 +479,10 @@ UI.
 
 - Offline AI has both the original two-call synthetic x86_64 smoke and one
   physical ARM64 Poco full 16-stage production-UI preload. The latter completed
-  without OOM and released most inference memory, but repeated inference,
-  cancellation/recreation, and thermal/battery endurance remain unverified.
-  Anatomical-stage description quality was weak, and no human listener
-  completed the full TalkBack script.
+  without OOM and released most inference memory. The final v5 grounding path
+  was then captured for exact Stage 9 and Stage 16 placement descriptions.
+  Repeated inference, cancellation/recreation, thermal/battery endurance, and
+  human qualitative review of all 16 descriptions remain unverified.
 - Android emits JPEG and PNG. It recognizes BMP, TIFF, and GIF inputs, but
   actual import depends on the device's platform decoder (notably for TIFF);
   successfully decoded inputs use the explicit new-file PNG export fallback.
@@ -499,21 +499,22 @@ UI.
 
 ## Release evidence record
 
-This record applies to the Android port based on commit `b29bb63`. Automated
-instrumentation used the API 36 x86_64 Release build from the same final source;
-the multi-ABI evaluation APK was separately verified, installed, and launched.
+This record applies to Android 0.3.1 application source commit `db66a1d`.
+Historical automated instrumentation used an API 36 x86_64 Release build; the
+final multi-ABI evaluation APK was separately verified, installed, and launched
+on the physical Poco.
 No row implies human TalkBack or visual-quality validation.
 
 | Gate | Exact command/evidence | Final result |
 | --- | --- | --- |
-| Solution and Core regression | Full solution Release build with warnings as errors; portable Core harness | Pass: 0 warnings, 0 errors; Core 44/44 |
+| Solution and Core regression | Full solution Release build with warnings as errors; portable Core harness | Pass: 0 warnings, 0 errors; Core 51/51 |
 | Windows regression | WPF Release compilation on Linux | Compile pass: 0 warnings, 0 errors. Runtime tests were unavailable because Linux lacks `Microsoft.WindowsDesktop.App` 10.0. |
 | Native runtime packaging | Final APK plus `scripts/android/verify-apk.sh` | Pass: required runtime libraries are present for both packaged ABIs; 132 packaged ELF files are 16 KiB aligned. |
 | Android Release build, warnings as errors | Full solution Release build | Pass: 0 warnings, 0 errors. |
-| Prior signed 0.3.0 APK metadata, ABIs, permissions, alignment, signature | `scripts/android/verify-apk.sh artifacts/android/TATAPP-0.3.0-evaluation-arm64-x86_64.apk` | Historical pass: package `com.grayscaleconsultants.tatapp`, version 0.3.0/1, min 26, target 36, `arm64-v8a` + `x86_64`, only `INTERNET`, 132/132 ELF files 16 KiB aligned, APK v2/v3 verified. The current 0.3.1/2 artifact requires a fresh signed publish and verification. |
+| Signed 0.3.1 APK metadata, ABIs, permissions, alignment, signature | `scripts/android/verify-apk.sh artifacts/android/TATAPP-0.3.1-evaluation-arm64-x86_64.apk` | Pass: package `com.grayscaleconsultants.tatapp`, version 0.3.1/2, min 26, target 36, `arm64-v8a` + `x86_64`, only `INTERNET`, 132/132 ELF files 16 KiB aligned, APK v2/v3 verified. |
 | Connected Java instrumentation | API 36 x86_64 16 KiB emulator; `scripts/test-android-instrumentation.sh` | Historical pass: 27 passed, 0 failed, 2 skipped. The stage-debounce/low-memory label-and-export regression passed; historical skips were loaded-model integrated UI/heartbeat and human TalkBack. On 2026-10-02 the target app installed on the Poco, but HyperOS blocked the temporary harness install with `INSTALL_FAILED_USER_RESTRICTED`; no new harness pass is claimed. |
 | Exact-model offline smoke | API 36 x86_64 16 KiB emulator; synthetic 192 px Original image | Pass: actual Qwen3-VL two-call inference produced accurate nonempty black-ring output, took about 8 minutes, peaked near 2.17 GB PSS, and released inference memory. This remains the narrow x86_64 qualification result. |
-| ARM64 full offline preload | API 36 Poco F7 Ultra; exact catalog model/projector; production UI; Wi-Fi/mobile disabled from stage 6 through 16 | Pass within observed scope: checksum verification completed, all 16 descriptions completed, controls remained disabled during work, ready status appeared, heartbeat stopped, stages 1/8/9/16 were captured, and no OOM occurred. Anatomical description quality was weak; no human TalkBack claim. |
+| ARM64 full offline preload | API 36 Poco F7 Ultra; exact catalog model/projector; production UI; Wi-Fi/mobile disabled through readiness | Pass within observed scope: checksum verification completed, one actual on-phone Qwen inference ran, all 16 grounded descriptions completed, controls remained disabled during work, ready status appeared once, heartbeat stopped, stages 1/8/9/16 were captured, and no OOM occurred. Exact v5 Stage 9/16 UI evidence is checksum-locked; no full human description-quality claim. |
 | Direct production-path heartbeat test | API 36 Poco F7 Ultra; Google TalkBack enabled; accessibility volume 10/15 | Pass on 2026-10-02: all three two-tone pulses were heard across about ten seconds, and TalkBack announced start and completion. This does not validate a fresh full 16-stage AI run or its readiness announcement. |
 | Final APK install and launch | API 36 x86_64 emulator; non-incremental install, cold launch offline, and same-version `-r` install | Pass. The `-r` result validates reinstall mechanics, not migration from an older `versionCode`. |
 | ARM64 installation | API 32 Rokid device; fresh install and resumed Activity | Pass for installation and Activity resumption only; no human visual or accessibility validation was performed. |
@@ -521,5 +522,5 @@ No row implies human TalkBack or visual-quality validation.
 | Manual image/lifecycle exercise | API 36 x86_64 emulator | Pass within observed scope: system picker loaded a 256x256 PNG and 6000x4000 JPEG; stage 2 settled ready; rotation retained stage 12 anatomy; background/resume and a background process kill restored the workspace; 2x-font start screen remained usable; system DocumentsUI saved the selected 256x256 Original image as a new PNG. |
 | BLACK WIDOW default-browser dispatch | API 36 Poco; package-resolution logs and foreground capture | Pass for initial dispatch: TATAPP package-targeted Chrome with the exact configured URL. Chrome then handed the destination to Facebook. The capture returned by explicitly relaunching TATAPP, so direct Back restoration and TalkBack focus preservation remain unverified. |
 | Managed/native memory observations | API 36 x86_64 emulator editing samples; API 36 ARM64 Poco inference samples | Emulator editing ranged from about 50 MB cold to 111 MB after repeated import and 90 MB after background trim. Poco PSS was approximately 2.4 GB during active full-stage inference and approximately 302 MB after session disposal, with no observed OOM. This is one run, not a repeated or thermal/endurance profile. |
-| Human TalkBack script | `docs/ACCESSIBILITY.md` | The direct heartbeat test's start/completion announcements passed with Google TalkBack on 2026-10-02. The complete speech-quality, focus, Explore-by-Touch, and full AI readiness-announcement script remains unverified. |
-| Prior physically validated 0.3.0 APK identity, size and SHA-256 | `stat`; `sha256sum`; APK signer verification; pulled-Poco `base.apk` comparison | `artifacts/android/TATAPP-0.3.0-evaluation-arm64-x86_64.apk`, 20,198,175 bytes, SHA-256 `7e9469cdf2c8f87e52c6b5fce8d546f14159eb5358d601b7c3f1d3c095715a77`, signer SHA-256 `eac3df9aba3e08437bc988682566f072e52d2dde6bda373daa998cdee74d9f90`; the replacement-installed Poco APK matched byte-for-byte. No signed, installed, or device-validated 0.3.1 artifact is claimed by this historical record. |
+| Human TalkBack script | `docs/ACCESSIBILITY.md` | On the Poco, the user verified section navigation, body-placement control operation, escape between sections, all three heartbeat pulses, and TalkBack start/completion announcements. The complete speech-quality, Explore-by-Touch, and full AI readiness-announcement script remains unverified. |
+| Final physically validated 0.3.1 APK identity, size and SHA-256 | `stat`; `sha256sum`; APK signer verification; pulled-Poco `base.apk` comparison | `artifacts/android/TATAPP-0.3.1-evaluation-arm64-x86_64.apk`, 20,198,175 bytes, SHA-256 `7f83b72ae3f1af5024d0dade5c3a220387762ccad5ac7c4f2812cccc0e1f42c9`, signer SHA-256 `eac3df9aba3e08437bc988682566f072e52d2dde6bda373daa998cdee74d9f90`; the replacement-installed Poco APK matched byte-for-byte, and cold/offline launch passed. |

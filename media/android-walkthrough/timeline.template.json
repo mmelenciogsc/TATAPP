@@ -33,121 +33,257 @@
     "font_bold": "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
     "font_bold_sha256": "5c1247acef7f2b8522a31742c76d6adcb5569bacc0be7ceaa4dc39dd252ce895"
   },
+  "release_target_capture_session": "poco_20261002_release_031",
+  "capture_sessions": {
+    "poco_20261001_core_030": {
+      "state": "historical_unresolved",
+      "capture_date": "2026-10-01",
+      "device": "Poco F7 Ultra 24122RKC7G",
+      "android": "Android 16 / API 36",
+      "display": "1080x2400 at density 450",
+      "build_fingerprint": "POCO/miro_global/miro:16/BP2A.250605.031.A3/OS3.0.302.0.WOMMIXM:user/release-keys",
+      "talkback_version": "17.0.1.926549743 (version code 60215178)",
+      "recorder": "MIUI Screen Recorder 4.15.3.5.0 (version code 41503050)",
+      "application": {
+        "package": "com.grayscaleconsultants.tatapp",
+        "version_name": "0.3.0",
+        "version_code": 1,
+        "apk_sha256": null,
+        "signing_certificate_sha256": "eac3df9aba3e08437bc988682566f072e52d2dde6bda373daa998cdee74d9f90",
+        "git_commit": null
+      },
+      "limitations": "The capture files are checksum-verified, but the exact installed APK and Git commit were not recorded per source. The legacy global APK label is not accepted as capture provenance. This historical session cannot satisfy a release-target capture requirement."
+    },
+    "poco_20261001_black_widow_030": {
+      "state": "historical_verified",
+      "capture_date": "2026-10-01",
+      "device": "Poco F7 Ultra 24122RKC7G",
+      "android": "Android 16 / API 36",
+      "display": "1080x2400 at density 450",
+      "build_fingerprint": "POCO/miro_global/miro:16/BP2A.250605.031.A3/OS3.0.302.0.WOMMIXM:user/release-keys",
+      "talkback_version": "17.0.1.926549743 (version code 60215178)",
+      "recorder": "MIUI Screen Recorder 4.15.3.5.0 (version code 41503050)",
+      "application": {
+        "package": "com.grayscaleconsultants.tatapp",
+        "version_name": "0.3.0",
+        "version_code": 1,
+        "apk_sha256": "14928712d2600511a176bcfe197674e282068def2950dea0378a9817f9ed24fc",
+        "signing_certificate_sha256": "eac3df9aba3e08437bc988682566f072e52d2dde6bda373daa998cdee74d9f90",
+        "git_commit": "f41a096c1d3b37fac6c2be59c2b0a4a2fc2a32a1"
+      },
+      "limitations": "Historical corrected-link capture; it cannot satisfy a release-target capture requirement."
+    },
+    "poco_20261002_release_031": {
+      "state": "verified",
+      "capture_date": "2026-10-02",
+      "device": "Poco F7 Ultra 24122RKC7G",
+      "android": "Android 16 / API 36",
+      "display": "1080x2400 at density 450",
+      "build_fingerprint": "POCO/miro_global/miro:16/BP2A.250605.031.A3/OS3.0.302.0.WOMMIXM:user/release-keys",
+      "talkback_version": "17.0.1.926549743 (version code 60215178)",
+      "recorder": "MIUI Screen Recorder 4.15.3.5.0 (version code 41503050); 2400x1080, 16 Mbps, Auto portrait, System audio, 24 fps",
+      "application": {
+        "package": "com.grayscaleconsultants.tatapp",
+        "version_name": "0.3.1",
+        "version_code": 2,
+        "apk_sha256": "7f83b72ae3f1af5024d0dade5c3a220387762ccad5ac7c4f2812cccc0e1f42c9",
+        "signing_certificate_sha256": "eac3df9aba3e08437bc988682566f072e52d2dde6bda373daa998cdee74d9f90",
+        "git_commit": "db66a1d7a0e7100906dc69b9bd705a7ae3463276"
+      },
+      "capture_conditions": {
+        "talkback_enabled": true,
+        "accessibility_volume": "10/15",
+        "media_volume": "0/150",
+        "do_not_disturb": "off",
+        "screen_recorder_sound_source": "System",
+        "show_touch_gestures": false,
+        "show_button_taps": false
+      },
+      "limitations": "All three required release-evidence captures are checksum-locked from the exact installed v5 APK. MIUI recorder sources retain native variable-frame timestamps and are normalized to CFR by the renderer. Automated transcript and signal checks do not replace the human media-review gates."
+    }
+  },
   "sources": {
     "start_screen": {
       "path": "artifacts/android-walkthrough/screenshots/01-start-screen.png",
       "sha256": "b704fd4d42945b510a1a3b20bf827e3aca04f68e07e8e63be4458b67aa2de2f5",
+      "provenance_kind": "app_screenshot",
+      "capture_session": "poco_20261001_core_030",
       "state": "verified"
     },
     "wolf_original": {
       "path": "artifacts/android-walkthrough/screenshots/02-wolf-original.png",
       "sha256": "50905fa744368fe35660315a21e89dba5fdf8fa02018dea3334077644cfaf2c8",
+      "provenance_kind": "app_screenshot",
+      "capture_session": "poco_20261001_core_030",
       "state": "verified"
     },
     "fine_outline": {
       "path": "artifacts/android-walkthrough/screenshots/07-flat-fine-outline-preview.png",
       "sha256": "98f7c155e9102bdf746a05980518fc34a6f2abb94eb92b30c9a5f464bdd9bf18",
+      "provenance_kind": "app_screenshot",
+      "capture_session": "poco_20261001_core_030",
       "state": "verified"
     },
     "placement_controls": {
       "path": "artifacts/android-walkthrough/screenshots/08-placement-full-color-controls.png",
       "sha256": "6df716d5a414720cf4e2fe9e5b323f640d57ddab345011eee69eb3c5c46ed281",
+      "provenance_kind": "app_screenshot",
+      "capture_session": "poco_20261001_core_030",
       "state": "verified"
     },
     "placement_preview": {
       "path": "artifacts/android-walkthrough/screenshots/09-placement-full-color-preview.png",
       "sha256": "ab408ba194aec1a61086ba3c2b575ae24ec7080a2b0c17b1c6a187f6e6b1c532",
+      "provenance_kind": "app_screenshot",
+      "capture_session": "poco_20261001_core_030",
       "state": "verified"
     },
     "save_return": {
       "path": "artifacts/android-walkthrough/screenshots/11-save-return.png",
       "sha256": "657f2ed314b3ee26c762c75ef57d056a0f95e4d1916bc95dc99f1e321a337e94",
+      "provenance_kind": "app_screenshot",
+      "capture_session": "poco_20261001_core_030",
       "state": "verified"
     },
     "controls_capture": {
       "path": "artifacts/android-walkthrough/raw/01-talkback-controls-pass.mp4",
       "sha256": "d19682def8e66a53b2d50ef1b6097929401efdc3d2be998e447cfc03f6735024",
+      "provenance_kind": "app_capture",
+      "capture_session": "poco_20261001_core_030",
       "state": "verified"
     },
     "flat_capture": {
       "path": "artifacts/android-walkthrough/raw/02-flat-stage-navigation-talkback.mp4",
       "sha256": "032dc2342fb55358976f7afefdd8e1842f6ecfbff286b12756c43ac80171ea00",
+      "provenance_kind": "app_capture",
+      "capture_session": "poco_20261001_core_030",
       "state": "verified"
     },
     "anatomy_08_12_capture": {
       "path": "artifacts/android-walkthrough/raw/03-anatomical-stages-08-to-12.mp4",
       "sha256": "aaf8e8c41aa3242352269cd9703ade7973baac3e937ef31c267349969d572460",
+      "provenance_kind": "app_capture",
+      "capture_session": "poco_20261001_core_030",
       "state": "verified"
     },
     "anatomy_12_16_capture": {
       "path": "artifacts/android-walkthrough/raw/04-anatomical-stages-12-to-16-talkback.mp4",
       "sha256": "06c7ad8fa9c46cd09bd0a7bd9b3488de2f3ab293aeacdece9c1cdca9f580dac8",
+      "provenance_kind": "app_capture",
+      "capture_session": "poco_20261001_core_030",
       "state": "verified"
     },
     "save_capture": {
       "path": "artifacts/android-walkthrough/raw/05-save-current-look-talkback.mp4",
       "sha256": "9a051fcbc871c21f494b3f06c1bcf441d864ff62846e7c08749ab42125eee7d0",
+      "provenance_kind": "app_capture",
+      "capture_session": "poco_20261001_core_030",
       "state": "verified"
     },
     "ai_preprocessing_capture": {
       "path": "artifacts/android-walkthrough/raw/06-offline-ai-preprocessing-heartbeat.mp4",
       "sha256": "1807bdd0e5a804dc2885e31e2efe5e774497b3bc0fafdc35b5e60f7b021dd34c",
+      "provenance_kind": "app_capture",
+      "capture_session": "poco_20261001_core_030",
       "state": "preprocessing_only_not_ready"
     },
     "ai_ready_capture": {
       "path": "artifacts/android-walkthrough/raw/07-offline-ai-ready-talkback.mp4",
       "sha256": "e6e4095c799129eccc07ea3e36166605e4c6af39882ef5d74ad533fb02aa9eb1",
+      "provenance_kind": "app_capture",
+      "capture_session": "poco_20261001_core_030",
+      "state": "verified"
+    },
+    "workspace_navigation_031_capture": {
+      "path": "artifacts/android-walkthrough/raw/20-workspace-navigation-talkback.mp4",
+      "sha256": "0361f03d8ab5e204a7a40b387d0a2070afd99720383d955d11d5ad4d07b74252",
+      "provenance_kind": "app_capture",
+      "capture_session": "poco_20261002_release_031",
+      "state": "verified"
+    },
+    "processing_heartbeat_031_capture": {
+      "path": "artifacts/android-walkthrough/raw/21-processing-heartbeat-talkback.mp4",
+      "sha256": "b2b7d3c173947b93ea4ff45ff2787d0dce5899118bbf8ea1971e1a1f5c198e1c",
+      "provenance_kind": "app_capture",
+      "capture_session": "poco_20261002_release_031",
+      "state": "verified"
+    },
+    "offline_ai_full_ready_031_capture": {
+      "path": "artifacts/android-walkthrough/raw/22-offline-ai-full-ready-talkback.mp4",
+      "sha256": "88712657a625425cc609803aabc52cbe18aa12f220d6bd3cf85723db016438b6",
+      "provenance_kind": "app_capture",
+      "capture_session": "poco_20261002_release_031",
       "state": "verified"
     },
     "wolf_clean_01_15_capture": {
       "path": "artifacts/android-walkthrough/raw/09-clean-stages-01-to-15.mp4",
       "sha256": "2875de78892cf0f77d2c430603287a146025c49f4b78564d182fc053cd2c8551",
+      "provenance_kind": "app_capture",
+      "capture_session": "poco_20261001_core_030",
       "state": "verified"
     },
     "wolf_clean_16_capture": {
       "path": "artifacts/android-walkthrough/raw/10-clean-stage-16.mp4",
       "sha256": "01a892134b7ea73f0ad341f73c84c49fee3f34aa33fff710c1a611f122492011",
+      "provenance_kind": "app_capture",
+      "capture_session": "poco_20261001_core_030",
       "state": "verified"
     },
     "clock_config_capture": {
       "path": "artifacts/android-walkthrough/raw/11-clock-import-configuration.mp4",
       "sha256": "713d67f27d818ae2f3c63dcee4f445a506febfbeefb828e38c4abd1fbae340cf",
+      "provenance_kind": "app_capture",
+      "capture_session": "poco_20261001_core_030",
       "state": "verified"
     },
     "clock_flat_capture": {
       "path": "artifacts/android-walkthrough/raw/11b-clock-flat-stages.mp4",
       "sha256": "57731b6903d07d906f095d97d481f76ff2e6689adede24e0ef5f01704413ff1a",
+      "provenance_kind": "app_capture",
+      "capture_session": "poco_20261001_core_030",
       "state": "verified"
     },
     "clock_anatomy_capture": {
       "path": "artifacts/android-walkthrough/raw/12-clock-anatomical-stages.mp4",
       "sha256": "19577cca96f04dd19550ce4557502840cad6cc9191db96a82043eea0431e9587",
+      "provenance_kind": "app_capture",
+      "capture_session": "poco_20261001_core_030",
       "state": "verified"
     },
     "sugar_import_capture": {
       "path": "artifacts/android-walkthrough/raw/13-sugar-import.mp4",
       "sha256": "eaf2e8c3657c16404c7489102945cb647bc7955817d576667a2e52d0c3a7d9fc",
+      "provenance_kind": "app_capture",
+      "capture_session": "poco_20261001_core_030",
       "state": "verified"
     },
     "sugar_stages_capture": {
       "path": "artifacts/android-walkthrough/raw/14-sugar-stages.mp4",
       "sha256": "af95f116c40fa22252c879ccdb55e6acf9090667c576b57e6de08d407d70a53e",
+      "provenance_kind": "app_capture",
+      "capture_session": "poco_20261001_core_030",
       "state": "verified"
     },
     "sugar_save_capture": {
       "path": "artifacts/android-walkthrough/raw/15-sugar-save-talkback.mp4",
       "sha256": "af553bcddee8510c1e5b72721ec345c2381ac630a425b17e326ad02b54eba799",
+      "provenance_kind": "app_capture",
+      "capture_session": "poco_20261001_core_030",
       "state": "verified"
     },
     "sugar_stage16_preview": {
       "path": "artifacts/android-walkthrough/screenshots/16-sugar-stage16-preview.png",
       "sha256": "1d6f24aaef6149e70b61ec0455899bd3de58d8e0c0e641d8a7f3cc014725e14b",
+      "provenance_kind": "app_screenshot",
+      "capture_session": "poco_20261001_core_030",
       "state": "verified"
     },
     "sugar_export": {
       "path": "artifacts/android-walkthrough/raw/exported-sugar-stage-16-full-color.jpg",
       "sha256": "d4164031b783e778bd6c09504bb7413ddfbfb7a2b8a35d65efc7e665ae87be30",
       "dimensions": [990, 1097],
+      "provenance_kind": "app_export",
+      "capture_session": "poco_20261001_core_030",
       "state": "verified"
     },
     "black_widow_default_browser_capture": {
@@ -155,23 +291,28 @@
       "sha256": "cd5be477fed6890d6d8913167407c079fd52fe97089b2f388e4eb3aea28b1f04",
       "derived_from_sha256": "b5d810e4c493c040b5fd569f968758a350d7e53a5518bd8481893f1332b54d92",
       "redaction": "Opaque source-space box x=40,y=1050,w=1000,h=320 applied before walkthrough composition",
+      "provenance_kind": "app_capture",
+      "capture_session": "poco_20261001_black_widow_030",
       "state": "verified"
     },
     "clock_design": {
       "path": "artifacts/android-walkthrough/assets/time-is-running-out.jpg",
       "sha256": "693c490037494431906b93f3ab36f0c3cc9c5cb7cea8b1172f9fabb4443cd5de",
       "dimensions": [742, 1024],
+      "provenance_kind": "licensed_asset",
       "state": "verified"
     },
     "sugar_design": {
       "path": "artifacts/android-walkthrough/assets/sugar-skull-coloured.jpg",
       "sha256": "5943dc10479f9d30db477f153affc1a55a1ad4293570a658273f251fb0c9ba54",
       "dimensions": [832, 1024],
+      "provenance_kind": "licensed_asset",
       "state": "verified"
     },
     "music": {
       "path": "artifacts/android-walkthrough/assets/78-pulse.mp3",
       "sha256": "22200d7889174f166a5b08fe45577280103541ced3fb8c4c2d06245fdd1e02af",
+      "provenance_kind": "licensed_asset",
       "state": "verified"
     }
   },
@@ -342,6 +483,20 @@
       }
     },
     {
+      "id": "workspace_navigation_031",
+      "enabled": true,
+      "kind": "capture",
+      "source": "workspace_navigation_031_capture",
+      "source_start": 75.0,
+      "duration": 55.0,
+      "header": "WORKSPACE NAVIGATION",
+      "subheader": "Native section chooser · TalkBack focus follows deliberate activation",
+      "crop": [0, 0, 1080, 1080],
+      "retain_source_audio": true,
+      "source_audio_profile": "accessibility_evidence",
+      "release_feature": "workspace_navigation"
+    },
+    {
       "id": "ai_boundary",
       "kind": "still",
       "source": "placement_controls",
@@ -352,7 +507,22 @@
       "narration": "Qwen three V L two B runs locally on the Poco after consent."
     },
     {
+      "id": "processing_heartbeat_031",
+      "enabled": true,
+      "kind": "capture",
+      "source": "processing_heartbeat_031_capture",
+      "source_start": 62.0,
+      "duration": 22.5,
+      "header": "DIRECT PROCESSING HEARTBEAT",
+      "subheader": "Production audio path · three real pulses · TalkBack start and completion",
+      "crop": [0, 1200, 1080, 1080],
+      "retain_source_audio": true,
+      "source_audio_profile": "accessibility_evidence",
+      "release_feature": "processing_heartbeat"
+    },
+    {
       "id": "ai_ready",
+      "enabled": false,
       "kind": "capture",
       "source": "ai_ready_capture",
       "source_start": 20.0,
@@ -362,6 +532,22 @@
       "crop": [0, 1200, 1080, 1080],
       "retain_source_audio": true,
       "claim": "offline_ai_ready"
+    },
+    {
+      "id": "ai_ready_031",
+      "enabled": true,
+      "kind": "capture",
+      "source": "offline_ai_full_ready_031_capture",
+      "source_start": 55.0,
+      "duration": 40.0,
+      "header": "OFFLINE AI PRELOAD TO READY",
+      "subheader": "Fresh full preload · heartbeat stop · one ready announcement · cached descriptions",
+      "crop": [0, 1200, 1080, 1080],
+      "retain_source_audio": true,
+      "source_audio_profile": "accessibility_evidence",
+      "claim": "offline_ai_ready",
+      "release_feature": "offline_ai_full_ready",
+      "replaces_segment": "ai_ready"
     },
     {
       "id": "black_widow_default_browser",
