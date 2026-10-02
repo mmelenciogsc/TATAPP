@@ -21,6 +21,7 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
     private const int PickPhotoRequest = 1001;
     private const int TakePhotoRequest = 1002;
     private const int ExportRequest = 1003;
+    private const string OfflineDescriptionPromptRevision = "tatapp-android-objective-stage-v3";
     private const int HeartbeatTestPulseCount = 3;
     private const int HeartbeatTestDurationMilliseconds =
         ProcessingHeartbeatWaveform.FirstPulseDelayMilliseconds +
@@ -1129,7 +1130,7 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
             }
             status ??= await offlineAi.GetStatusAsync(model, token).ConfigureAwait(false);
             var cacheKey = OfflineDescriptionCacheKey.Create(source.Id, model, offlineAi.Catalog,
-                "tatapp-android-objective-stage-v2", anatomySnapshot);
+                OfflineDescriptionPromptRevision, anatomySnapshot);
             EnsureCurrentAiOperation(operationGeneration, source, sourceGeneration,
                 anatomySnapshot, model, cacheKey, token);
             var consented = status.State == ModelInstallationState.Ready;
@@ -1330,7 +1331,7 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
             !ReferenceEquals(source, document) || anatomyState != anatomySnapshot ||
             !offlineAiCheckBox.Checked) return false;
         return cacheKey == OfflineDescriptionCacheKey.Create(source.Id, model, offlineAi.Catalog,
-            "tatapp-android-objective-stage-v2", anatomyState);
+            OfflineDescriptionPromptRevision, anatomyState);
     }
 
     private void EnsureCurrentAiOperation(long operationGeneration, AndroidPhotoDocument source,

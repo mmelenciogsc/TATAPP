@@ -404,15 +404,9 @@ internal sealed class LlamaSharpVisionSession : IOfflineVisionSession
             {
                 var embed = mtmd.LoadMedia(request.Image.EncodedBytes.Span);
                 executor.Embeds.Add(embed);
-                var sourceContext = string.IsNullOrWhiteSpace(request.VerifiedSourceDescription)
-                    ? string.Empty
-                    : $" The source-stage description was: {request.VerifiedSourceDescription} Treat it only as context and never copy facts that the current rendered image does not support.";
-                var placementScope = request.Stage.IsAnatomicalPlacement
-                    ? "Describe anatomical placement only when it is directly visible in this rendered image."
-                    : "This is a design-only stage, not an anatomical placement view; do not mention a body, body location, or anatomical placement.";
-                var instruction = $"{mediaMarker}\nDescribe only objective visible facts in the rendered TATAPP stage '{request.Stage.Name}'. " +
-                                  $"Explain visible line, tone, and texture. {placementScope} Distinguish uncertainty, avoid identity or medical claims, and do not infer unseen content. " +
-                                  $"Return one short paragraph only, with no headings, lists, quotations, code blocks, or alternative answers.{sourceContext}";
+                var instruction = $"{mediaMarker}\n" +
+                                  OfflineStageDescriptionPrompt.Build(request.Stage,
+                                      request.SourceModelObservation);
                 var template = new LLamaTemplate(weights, strict: true) { AddAssistant = true };
                 template.Add("system", "You are an offline visual description assistant. Be concise, vivid, factual, and explicit about uncertainty.");
                 template.Add("user", instruction);

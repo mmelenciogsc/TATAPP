@@ -340,7 +340,7 @@ public sealed class OfflineDescriptionPreloadCoordinator : IDisposable
             await EnsureRuntimeHeadroomAsync(variant, capabilityProbe, sessionResident: false, cancellationToken)
                 .ConfigureAwait(false);
             var descriptions = new Dictionary<TattooStageKind, string>();
-            string? verifiedSourceDescription = null;
+            string? sourceModelObservation = null;
             await using var session = await sessionFactory.OpenAsync(variant, cancellationToken)
                 .ConfigureAwait(false);
             for (var index = 0; index < TattooStageCatalog.All.Count; index++)
@@ -359,15 +359,17 @@ public sealed class OfflineDescriptionPreloadCoordinator : IDisposable
                 await EnsureRuntimeHeadroomAsync(variant, capabilityProbe, sessionResident: true, cancellationToken)
                     .ConfigureAwait(false);
 
-                var description = await session.DescribeAsync(new(stage, image,
-                    verifiedSourceDescription, variant.ContextTokens, variant.MaximumOutputTokens),
+                var modelDescription = await session.DescribeAsync(new(stage, image,
+                    sourceModelObservation, variant.ContextTokens, variant.MaximumOutputTokens),
                     cancellationToken).ConfigureAwait(false);
                 cancellationToken.ThrowIfCancellationRequested();
-                if (string.IsNullOrWhiteSpace(description))
+                if (string.IsNullOrWhiteSpace(modelDescription))
                     throw new InvalidDataException($"The local model returned no description for '{stage.Name}'.");
-                descriptions.Add(stage.Kind, description.Trim());
+                modelDescription = modelDescription.Trim();
+                descriptions.Add(stage.Kind, GroundDescription(stage, modelDescription,
+                    sourceModelObservation));
                 if (stage.Kind == TattooStageKind.Original)
-                    verifiedSourceDescription = description.Trim();
+                    sourceModelObservation = modelDescription;
                 progress?.Report(new(index + 1, TattooStageCatalog.All.Count, stage));
             }
 
@@ -382,6 +384,26 @@ public sealed class OfflineDescriptionPreloadCoordinator : IDisposable
             if (gateHeld) preloadGate.Release();
         }
     }
+
+    private static string GroundDescription(TattooStage stage, string modelDescription,
+        string? sourceModelObservation)
+    {
+        var stageNumber = TattooStageCatalog.All.TakeWhile(item => item.Kind != stage.Kind).Count() + 1;
+        var stageContext = $"Stage {stageNumber} of {TattooStageCatalog.All.Count}: {stage.Name}. {stage.Description}";
+        if (stage.Kind != TattooStageKind.Original &&
+            !string.IsNullOrWhiteSpace(sourceModelObservation) &&
+            EquivalentIgnoringWhitespace(modelDescription, sourceModelObservation))
+            return $"{stageContext} The offline model repeated its source-stage response without adding stage-specific detail. Untrusted source-model observation: {modelDescription}";
+        return $"{stageContext} Model observation: {modelDescription}";
+    }
+
+    private static bool EquivalentIgnoringWhitespace(string first, string second) =>
+        string.Equals(NormalizeWhitespace(first), NormalizeWhitespace(second),
+            StringComparison.OrdinalIgnoreCase);
+
+    private static string NormalizeWhitespace(string value) =>
+        string.Join(' ', value.Split((char[]?)null,
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
 
     private static async Task EnsureRuntimeHeadroomAsync(OfflineModelVariant variant,
         IOfflineAiCapabilityProbe capabilityProbe, bool sessionResident,
