@@ -1,5 +1,6 @@
 using System.IO;
 using System.Media;
+using TATAPP.Core.OfflineAI;
 
 namespace TATAPP.App.OfflineAI;
 
@@ -22,7 +23,9 @@ internal sealed class ProcessingHeartbeat : IDisposable
             waveStream = new MemoryStream(CreateWaveData(), writable: false);
             player = new SoundPlayer(waveStream);
             player.Load();
-            timer = new Timer(PlayPulse, null, TimeSpan.FromMilliseconds(1200), TimeSpan.FromSeconds(4));
+            timer = new Timer(PlayPulse, null,
+                TimeSpan.FromMilliseconds(1200),
+                TimeSpan.FromMilliseconds(ProcessingHeartbeatWaveform.PulseCadenceMilliseconds));
         }
         catch (Exception exception) when (exception is InvalidOperationException or IOException or TimeoutException)
         {
@@ -79,49 +82,5 @@ internal sealed class ProcessingHeartbeat : IDisposable
         waveStream = null;
     }
 
-    internal static byte[] CreateWaveData()
-    {
-        const int sampleRate = 22050;
-        const int durationMilliseconds = 420;
-        const short channels = 1;
-        const short bitsPerSample = 16;
-        var sampleCount = sampleRate * durationMilliseconds / 1000;
-        var dataLength = sampleCount * channels * bitsPerSample / 8;
-
-        using var stream = new MemoryStream(44 + dataLength);
-        using var writer = new BinaryWriter(stream);
-        writer.Write("RIFF"u8);
-        writer.Write(36 + dataLength);
-        writer.Write("WAVE"u8);
-        writer.Write("fmt "u8);
-        writer.Write(16);
-        writer.Write((short)1);
-        writer.Write(channels);
-        writer.Write(sampleRate);
-        writer.Write(sampleRate * channels * bitsPerSample / 8);
-        writer.Write((short)(channels * bitsPerSample / 8));
-        writer.Write(bitsPerSample);
-        writer.Write("data"u8);
-        writer.Write(dataLength);
-
-        for (var index = 0; index < sampleCount; index++)
-        {
-            var milliseconds = index * 1000d / sampleRate;
-            var sample = Tone(milliseconds, 45, 72, 620, 0.10) +
-                         Tone(milliseconds, 205, 86, 760, 0.085);
-            writer.Write((short)Math.Round(sample * short.MaxValue));
-        }
-        writer.Flush();
-        return stream.ToArray();
-    }
-
-    private static double Tone(double currentMilliseconds, double startMilliseconds,
-        double durationMilliseconds, double frequency, double amplitude)
-    {
-        var elapsed = currentMilliseconds - startMilliseconds;
-        if (elapsed < 0 || elapsed >= durationMilliseconds) return 0;
-        var envelope = Math.Sin(Math.PI * elapsed / durationMilliseconds);
-        envelope *= envelope;
-        return amplitude * envelope * Math.Sin(2 * Math.PI * frequency * elapsed / 1000);
-    }
+    internal static byte[] CreateWaveData() => ProcessingHeartbeatWaveform.CreateWaveFile();
 }

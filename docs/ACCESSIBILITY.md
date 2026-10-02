@@ -82,10 +82,15 @@ Offline AI Describe is opt-in. The checkbox identifies local model use,
 installation consent, and the no-upload boundary. Download progress has an
 accessible percentage; within one install phase, UI updates require both a
 five-percentage-point advance and at least 750 ms (phase changes and completion
-are immediate). Sequential preprocessing announces the first, every fourth,
-and final stage rather than all transient work. The comfortable low-volume heartbeat is
-supplementary, runs only while foreground preprocessing is active, and stops on
-success, cancellation, error, backgrounding, or low-memory cleanup.
+are immediate). Sequential preprocessing updates a readable non-live description
+region rather than announcing transient N-of-N values. The sole polite status
+region publishes one final readiness sentence after cache commit, heartbeat stop,
+and control restoration. The heartbeat is supplementary, follows Android's
+independently controlled accessibility volume, runs only while foreground
+preprocessing is active, and stops on success, cancellation, error,
+backgrounding, or low-memory cleanup. **Test processing heartbeat** runs the
+exact player for three pulses in about ten seconds; its text changes to **Stop
+heartbeat test**, Back also stops it, and Offline AI cannot start concurrently.
 
 A completed description cache must contain every current catalog stage before
 the UI says ready. Selecting a preloaded stage changes the readable description
@@ -133,6 +138,18 @@ separately passed install, cold offline launch, and same-version reinstall on
 the emulator. No human listener performed the full TalkBack script, and the
 observations below do not establish speech or broad visual quality.
 
+On 2026-10-02, a 20,198,175-byte signed APK with SHA-256
+`7e9469cdf2c8f87e52c6b5fce8d546f14159eb5358d601b7c3f1d3c095715a77`
+replacement-installed on the Poco F7 Ultra; its installed `base.apk` matched
+byte-for-byte. With Google TalkBack enabled and accessibility volume at 10/15,
+the user heard all three two-tone pulses across the direct production-path
+heartbeat test's roughly ten seconds and TalkBack announced start and
+completion. This does not validate a fresh full 16-stage AI run or the revised
+readiness announcement. A connected-instrumentation attempt installed the
+target app but HyperOS rejected the temporary harness with
+`INSTALL_FAILED_USER_RESTRICTED`; the earlier 27-pass instrumentation run
+therefore remains historical rather than being superseded.
+
 | Scenario | Automated evidence | Required human/device evidence | Current human status |
 | --- | --- | --- | --- |
 | Launch, focus order, semantics, 48 dp controls | Native view/node assertions passed | Listen to TalkBack order; Explore by Touch; switch/keyboard activation | TalkBack UNVERIFIED; final APK cold/offline launch passed on emulator |
@@ -143,7 +160,7 @@ observations below do not establish speech or broad visual quality.
 | Font/display scale, rotation and recreation | 2x-text/320 dp structural stress and orientation recreation passed | Maximum practical system font/display scales in portrait/landscape | Partial: 2x-font start screen usable and rotation retained state on emulator; maximum practical settings and human accessibility remain UNVERIFIED |
 | Memory/lifecycle | Critical trim/low-memory callback usability and stale-source fences passed | Repeated imports, backgrounding and profiler evidence on constrained hardware | Emulator editing samples ranged from about 50 MB cold to 111 MB after repeated import. One ARM64 full preload completed without OOM at approximately 2.4 GB active PSS and fell to approximately 302 MB after session disposal; repeated inference, cancellation/recreation, and thermal endurance remain unverified. |
 | BLACK WIDOW TATTOO | Focus emits no intent; activation emits exact browsable URL targeted to the configured browser package | Browser launch, return, and preserved TalkBack focus | Partial: Poco logs prove TATAPP package-targeted Chrome with the exact URL; Chrome then handed the destination to Facebook. The capture returned by explicitly relaunching TATAPP, so direct Back restoration and TalkBack focus preservation remain unverified. |
-| Offline AI and heartbeat | False-ready fence passed; separate actual-model two-call x86_64 smoke passed | Exact-model install, offline 16-stage preload, cancellation, memory, speech, and heartbeat lifetime | Physical ARM64 pass: exact files checksum-verified, all 16 stages completed, radios off for stages 6–16, controls disabled while active, ready state published, heartbeat stopped, and stages 1/8/9/16 captured. Human TalkBack remains unverified; anatomical description quality was weak. |
+| Offline AI and heartbeat | False-ready fence passed; separate actual-model two-call x86_64 smoke passed. The current source contract publishes `Offline descriptions are ready for all 16 stages.` through the sole polite status region only after cache commit, heartbeat stop, and control restoration. | Exact-model install, offline 16-stage preload, cancellation, memory, speech, and heartbeat lifetime | Physical ARM64 evidence includes the earlier complete 16-stage run and the 2026-10-02 direct heartbeat test: all three revised pulses were audible and TalkBack announced test start/completion. The revised full-AI readiness utterance has not been human reverified; anatomical description quality was weak. |
 
 The SAF provider exists only in the test APK; it is not a production exported
 component. The release verifier separately rejects unexpected exported
@@ -233,6 +250,13 @@ device is offline.
     uncertainty honestly, and does not steal focus. Background/foreground the
     app during a fresh preload and confirm it cancels or resumes only as
     documented, never reporting a partial cache ready.
+    Before enabling AI, activate **Test processing heartbeat** and hear three
+    quiet two-note pulses over about ten seconds at the device's accessibility
+    volume. Confirm the label becomes **Stop heartbeat test**, activate it to
+    stop a repeat test immediately, and repeat once using Back. Confirm each
+    start/stop/failure status is spoken once without moving focus, Workspace
+    navigation remains enabled, and Offline AI is disabled only while the test
+    is active.
 13. **Large text/layout.** Repeat core navigation at maximum font/display scale
     in portrait and landscape. Confirm all controls scroll into view, labels are
     not clipped beyond understanding, focus order remains logical, touch targets

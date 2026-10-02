@@ -21,6 +21,11 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
     private const int PickPhotoRequest = 1001;
     private const int TakePhotoRequest = 1002;
     private const int ExportRequest = 1003;
+    private const int HeartbeatTestPulseCount = 3;
+    private const int HeartbeatTestDurationMilliseconds =
+        ProcessingHeartbeatWaveform.FirstPulseDelayMilliseconds +
+        ((HeartbeatTestPulseCount - 1) * ProcessingHeartbeatWaveform.PulseCadenceMilliseconds) +
+        ProcessingHeartbeatWaveform.DurationMilliseconds + 250;
     private readonly Dictionary<TattooStageKind, string> offlineDescriptions = [];
     private IAndroidImageService imageService = null!;
     private IAndroidMediaLauncher mediaLauncher = null!;
@@ -37,6 +42,7 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
     private CancellationTokenSource? restoreCancellation;
     private CancellationTokenSource? renderCancellation;
     private CancellationTokenSource? aiCancellation;
+    private CancellationTokenSource? heartbeatTestCancellation;
     private readonly object taskSynchronization = new();
     private readonly HashSet<Task> activeTasks = [];
     private long documentGeneration;
@@ -44,6 +50,8 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
     private long restoreGeneration;
     private long renderGeneration;
     private long aiOperationGeneration;
+    private long sectionNavigationGeneration;
+    private long heartbeatTestGeneration;
     private string? pendingCameraPath;
     private string? pendingCameraUri;
     private ExportSnapshot? pendingExport;
@@ -59,10 +67,21 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
     private bool stageSliderTracking;
     private bool aiPreprocessing;
     private bool aiWorkActive;
+    private bool heartbeatTestActive;
+    private bool interfaceBusy;
     private AlertDialog? activeDialog;
+    private AlertDialog? workspaceNavigationDialog;
+    private PendingWorkspaceNavigation? pendingWorkspaceNavigation;
+    private BackInvokedCallback? backInvokedCallback;
 
+    private ScrollView workspaceScroll = null!;
+    private LinearLayout contentRoot = null!;
     private LinearLayout startPanel = null!;
     private LinearLayout workspacePanel = null!;
+    private TextView imageActionsHeading = null!;
+    private TextView stageSectionHeading = null!;
+    private TextView bodySectionHeading = null!;
+    private TextView offlineSectionHeading = null!;
     private TextView sourceText = null!;
     private ImageView preview = null!;
     private AnatomyView anatomy = null!;
@@ -75,6 +94,11 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
     private Button saveButton = null!;
     private Button takeButton = null!;
     private Button selectButton = null!;
+    private Button blackWidowButton = null!;
+    private Button stageNavigationButton = null!;
+    private Button bodyNavigationButton = null!;
+    private Button offlineNavigationButton = null!;
+    private Button heartbeatTestButton = null!;
     private Spinner regionPicker = null!;
     private RadioButton maleButton = null!;
     private RadioButton femaleButton = null!;
@@ -82,6 +106,7 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
     private TextView bodySizeValue = null!;
     private SeekBar skinToneSlider = null!;
     private TextView skinToneValue = null!;
+    private TextView placementSummary = null!;
     private Switch reducedMotionSwitch = null!;
     private CheckBox offlineAiCheckBox = null!;
     private TextView offlineAiDescription = null!;
@@ -109,16 +134,18 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
         offlineAi = services.GetRequiredService<OfflineAiService>();
         BuildInterface();
         RestoreCompactState(savedInstanceState);
+        RegisterBackCallback();
     }
 
     private void BuildInterface()
     {
-        var scroll = new ScrollView(this)
+        var scroll = workspaceScroll = new ScrollView(this)
         {
             FillViewport = true,
-            ImportantForAccessibility = ImportantForAccessibility.No,
+            Focusable = false,
+            ImportantForAccessibility = ImportantForAccessibility.Auto,
         };
-        var root = Stack(vertical: true);
+        var root = contentRoot = Stack(vertical: true);
         root.SetPadding(Dp(16), Dp(16), Dp(16), Dp(24));
         root.SetOnApplyWindowInsetsListener(new RootInsetsListener(
             Dp(16), Dp(16), Dp(16), Dp(24)));
@@ -127,24 +154,32 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
         root.AddView(Heading("TATAPP", 30, true));
         root.AddView(Heading("Tattoo Art Prepper", 20, false));
         root.AddView(Label("Prepare an isolated design, then preview it naturally wrapped around an anatomical body surface."));
+        imageActionsHeading = Heading("Image actions and workspace start", 20, false);
+        root.AddView(imageActionsHeading);
 
         var actions = Stack(vertical: Resources?.Configuration?.Orientation != global::Android.Content.Res.Orientation.Landscape);
         actions.SetPadding(0, Dp(8), 0, Dp(8));
         takeButton = ActionButton("Take photo", "Opens the system camera without granting TATAPP camera access.");
         selectButton = ActionButton("Select photo", "Opens Android's system image picker.");
         saveButton = ActionButton("SAVE current look", "Exports exactly the visible semantic stage to a new document.");
-        var blackWidow = ActionButton("BLACK WIDOW TATTOO",
+        blackWidowButton = ActionButton("BLACK WIDOW TATTOO",
             "Opens the configured Facebook page in your default web browser after activation.");
         saveButton.Enabled = false;
         takeButton.Click += (_, _) => LaunchCamera();
         selectButton.Click += (_, _) => LaunchPicker();
         saveButton.Click += (_, _) => TrackTask(BeginExportAsync());
-        blackWidow.Click += (_, _) => OpenBlackWidow();
+        blackWidowButton.Click += (_, _) => OpenBlackWidow();
         actions.AddView(takeButton, WeightedWrap(actions.Orientation));
         actions.AddView(selectButton, WeightedWrap(actions.Orientation));
         actions.AddView(saveButton, WeightedWrap(actions.Orientation));
-        actions.AddView(blackWidow, WeightedWrap(actions.Orientation));
+        actions.AddView(blackWidowButton, WeightedWrap(actions.Orientation));
         root.AddView(actions);
+
+        status = Label("Ready. Take or select a photo to begin.");
+        status.ContentDescription = "Application status. Ready. Take or select a photo to begin.";
+        status.AccessibilityLiveRegion = AccessibilityLiveRegion.Polite;
+        status.SetPadding(0, Dp(8), 0, Dp(8));
+        root.AddView(status);
 
         startPanel = Stack(true);
         startPanel.AddView(Heading("Start", 22, false));
@@ -167,13 +202,44 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
         sourceText = Label("No photo loaded.");
         sourceText.ContentDescription = "Selected photo. No photo loaded.";
         workspacePanel.AddView(sourceText);
+        workspacePanel.AddView(CreateWorkspaceNavigationButton());
 
-        workspacePanel.AddView(Heading("Anatomical visualization", 20, false));
+        stageSectionHeading = Heading("Stage controls", 20, false);
+        bodySectionHeading = Heading("Body placement", 20, false);
+        offlineSectionHeading = Heading("Offline descriptions", 20, false);
+        workspacePanel.AddView(stageSectionHeading);
+        stageNavigationButton = CreateWorkspaceNavigationButton();
+        workspacePanel.AddView(stageNavigationButton);
+        stageHeading = Heading($"Stage 1 of {TattooStageCatalog.All.Count}: {TattooStageCatalog.All[0].Name}", 19, false);
+        stageDescription = Label(TattooStageCatalog.All[0].Description);
+        stageDescription.ImportantForAccessibility = ImportantForAccessibility.No;
+        stageValue = Label("Value 0 percent");
+        stageValue.ImportantForAccessibility = ImportantForAccessibility.No;
+        workspacePanel.AddView(stageHeading);
+        workspacePanel.AddView(stageDescription);
+        stageSlider = new StageSeekBar(this);
+        stageSlider.SetOnSeekBarChangeListener(this);
+        stageSlider.SemanticProgressRequested += SetSemanticProgress;
+        workspacePanel.AddView(stageSlider,
+            new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(56)));
+        workspacePanel.AddView(stageValue);
+        var stageActions = Stack(false);
+        previousButton = ActionButton("Previous Stage", "Moves to the previous significant visual stage.");
+        nextButton = ActionButton("Next Stage", "Moves to the next significant visual stage.");
+        previousButton.Click += (_, _) => MoveStage(-1);
+        nextButton.Click += (_, _) => MoveStage(1);
+        stageActions.AddView(previousButton, WeightedWrap(Orientation.Horizontal));
+        stageActions.AddView(nextButton, WeightedWrap(Orientation.Horizontal));
+        workspacePanel.AddView(stageActions);
+
+        workspacePanel.AddView(bodySectionHeading);
+        bodyNavigationButton = CreateWorkspaceNavigationButton();
+        workspacePanel.AddView(bodyNavigationButton);
         var visualRow = Stack(Resources?.Configuration?.Orientation != global::Android.Content.Res.Orientation.Landscape);
         preview = new ImageView(this)
         {
-            Focusable = true,
-            ImportantForAccessibility = ImportantForAccessibility.Yes,
+            Focusable = false,
+            ImportantForAccessibility = ImportantForAccessibility.No,
             ContentDescription = "Photo preview. No photo loaded.",
         };
         preview.SetAdjustViewBounds(true);
@@ -197,7 +263,6 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
             visualRow.AddView(preview, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(280)));
             visualRow.AddView(anatomy, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(390)));
         }
-        workspacePanel.AddView(visualRow);
         var sexGroup = new RadioGroup(this) { Orientation = Orientation.Horizontal };
         maleButton = new RadioButton(this) { Text = "Male", Checked = true, Id = View.GenerateViewId() };
         femaleButton = new RadioButton(this) { Text = "Female", Id = View.GenerateViewId() };
@@ -302,27 +367,22 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
         };
         workspacePanel.AddView(reducedMotionSwitch);
 
-        workspacePanel.AddView(Heading("Visual development", 20, false));
-        stageHeading = Heading($"Stage 1 of {TattooStageCatalog.All.Count}: {TattooStageCatalog.All[0].Name}", 19, false);
-        stageDescription = Label(TattooStageCatalog.All[0].Description);
-        stageValue = Label("Value 0 percent");
-        workspacePanel.AddView(stageHeading);
-        workspacePanel.AddView(stageDescription);
-        stageSlider = new StageSeekBar(this);
-        stageSlider.SetOnSeekBarChangeListener(this);
-        stageSlider.SemanticProgressRequested += SetSemanticProgress;
-        workspacePanel.AddView(stageSlider,
-            new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(56)));
-        workspacePanel.AddView(stageValue);
-        var stageActions = Stack(false);
-        previousButton = ActionButton("Previous Stage", "Moves to the previous significant visual stage.");
-        nextButton = ActionButton("Next Stage", "Moves to the next significant visual stage.");
-        previousButton.Click += (_, _) => MoveStage(-1);
-        nextButton.Click += (_, _) => MoveStage(1);
-        stageActions.AddView(previousButton, WeightedWrap(Orientation.Horizontal));
-        stageActions.AddView(nextButton, WeightedWrap(Orientation.Horizontal));
-        workspacePanel.AddView(stageActions);
+        placementSummary = Label(string.Empty);
+        workspacePanel.AddView(placementSummary);
 
+        workspacePanel.AddView(offlineSectionHeading);
+        offlineNavigationButton = CreateWorkspaceNavigationButton();
+        workspacePanel.AddView(offlineNavigationButton);
+        heartbeatTestButton = ActionButton("Test processing heartbeat",
+            "Plays three processing heartbeat pulses over about ten seconds using the same offline-processing audio path.");
+        heartbeatTestButton.Click += (_, _) =>
+        {
+            if (heartbeatTestActive)
+                StopHeartbeatTest("Processing heartbeat test stopped.");
+            else
+                TrackTask(RunHeartbeatTestAsync());
+        };
+        workspacePanel.AddView(heartbeatTestButton);
         offlineAiCheckBox = new CheckBox(this)
         {
             Text = "Offline AI Describe",
@@ -341,7 +401,7 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
         offlineAiDescription = Label("Offline AI Describe is off.");
         offlineAiDescription.Focusable = true;
         offlineAiDescription.ContentDescription = "Offline AI visual description. Offline AI Describe is off.";
-        offlineAiDescription.AccessibilityLiveRegion = AccessibilityLiveRegion.Polite;
+        offlineAiDescription.AccessibilityLiveRegion = AccessibilityLiveRegion.None;
         workspacePanel.AddView(offlineAiDescription);
 
         progress = new ProgressBar(this, null, global::Android.Resource.Attribute.ProgressBarStyleHorizontal)
@@ -356,18 +416,181 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
         cancelWorkButton.Visibility = ViewStates.Gone;
         cancelWorkButton.Click += (_, _) => CancelOfflineAiWork();
         workspacePanel.AddView(cancelWorkButton);
-        root.AddView(workspacePanel);
+        workspacePanel.AddView(CreateWorkspaceNavigationButton());
 
-        status = Label("Ready. Take or select a photo to begin.");
-        status.ContentDescription = "Application status. Ready. Take or select a photo to begin.";
-        status.AccessibilityLiveRegion = AccessibilityLiveRegion.Polite;
-        status.SetPadding(0, Dp(14), 0, Dp(8));
-        root.AddView(status);
+        var previewsHeading = Heading("Current previews", 20, false);
+        previewsHeading.ImportantForAccessibility = ImportantForAccessibility.No;
+        workspacePanel.AddView(previewsHeading);
+        workspacePanel.AddView(visualRow);
+        root.AddView(workspacePanel);
         SetContentView(scroll);
         root.RequestApplyInsets();
         ApplyAnatomyState(false, false);
         UpdateStageText(0);
     }
+
+    private Button CreateWorkspaceNavigationButton()
+    {
+        var button = ActionButton("Workspace navigation",
+            "Opens a native list for moving to image actions, stage controls, body placement controls, or offline descriptions.");
+        button.Click += (_, _) => ShowWorkspaceNavigation(button);
+        return button;
+    }
+
+    private void ShowWorkspaceNavigation(View invoker)
+    {
+        var generation = Interlocked.Increment(ref sectionNavigationGeneration);
+        pendingWorkspaceNavigation = null;
+        var previousDialog = workspaceNavigationDialog;
+        workspaceNavigationDialog = null;
+        previousDialog?.Dismiss();
+
+        var choices = new[]
+        {
+            "Image actions and workspace start",
+            "Stage controls",
+            "Body placement controls",
+            "Offline descriptions",
+        };
+        AlertDialog? dialog = null;
+        var builder = new AlertDialog.Builder(this);
+        builder.SetTitle("Go to workspace section");
+        builder.SetItems(choices, (_, args) =>
+        {
+            if (generation != Interlocked.Read(ref sectionNavigationGeneration)) return;
+            pendingWorkspaceNavigation = new(generation, invoker, args.Which);
+        });
+        builder.SetNegativeButton("Cancel", (_, _) =>
+        {
+            if (generation != Interlocked.Read(ref sectionNavigationGeneration)) return;
+            pendingWorkspaceNavigation = new(generation, invoker, null);
+        });
+        builder.SetOnCancelListener(new DialogCancelListener(() =>
+        {
+            if (generation != Interlocked.Read(ref sectionNavigationGeneration)) return;
+            pendingWorkspaceNavigation ??= new(generation, invoker, null);
+        }));
+        builder.SetOnDismissListener(new DialogDismissListener(() =>
+        {
+            if (ReferenceEquals(workspaceNavigationDialog, dialog)) workspaceNavigationDialog = null;
+            CompletePendingWorkspaceNavigation();
+        }));
+        dialog = builder.Create() ?? throw new InvalidOperationException(
+            "Android could not create the workspace navigation dialog.");
+        dialog.SetCanceledOnTouchOutside(false);
+        workspaceNavigationDialog = dialog;
+        dialog.Show();
+    }
+
+    private void CompletePendingWorkspaceNavigation()
+    {
+        var pending = pendingWorkspaceNavigation;
+        if (pending is null) return;
+        if (pending.Generation != Interlocked.Read(ref sectionNavigationGeneration) || IsFinishing || IsDestroyed ||
+            !workspaceVisible || workspacePanel.Visibility != ViewStates.Visible || !pending.Invoker.IsAttachedToWindow)
+        {
+            pendingWorkspaceNavigation = null;
+            return;
+        }
+        if (!HasWindowFocus) return;
+        pendingWorkspaceNavigation = null;
+        if (pending.Selection is null)
+        {
+            RestoreWorkspaceNavigationInvoker(pending.Invoker, pending.Generation);
+            return;
+        }
+
+        switch (pending.Selection.Value)
+        {
+            case 0:
+                NavigateToSection(imageActionsHeading, takeButton, selectButton, saveButton, blackWidowButton);
+                break;
+            case 1:
+                NavigateToSection(stageSectionHeading, stageNavigationButton, stageSlider,
+                    previousButton, nextButton);
+                break;
+            case 2:
+                NavigateToSection(bodySectionHeading, bodyNavigationButton, maleButton,
+                    femaleButton, regionPicker);
+                break;
+            case 3:
+                NavigateToSection(offlineSectionHeading, offlineNavigationButton,
+                    heartbeatTestButton, offlineAiCheckBox, cancelWorkButton);
+                break;
+        }
+    }
+
+    private void RestoreWorkspaceNavigationInvoker(View invoker, long generation)
+    {
+        workspaceScroll.PostOnAnimation(new UiRunnable(() =>
+        {
+            if (generation != Interlocked.Read(ref sectionNavigationGeneration) || IsFinishing || IsDestroyed ||
+                !workspaceVisible || workspacePanel.Visibility != ViewStates.Visible ||
+                !workspaceScroll.IsAttachedToWindow || !invoker.IsAttachedToWindow)
+                return;
+
+            var accessibilityManager = (global::Android.Views.Accessibility.AccessibilityManager?)
+                GetSystemService(global::Android.Content.Context.AccessibilityService);
+            if (accessibilityManager?.IsTouchExplorationEnabled == true)
+                invoker.PerformAccessibilityAction(Android.Views.Accessibility.Action.AccessibilityFocus, null);
+            else
+                invoker.RequestFocus();
+        }));
+    }
+
+    private void NavigateToSection(View heading, params View[] actionCandidates)
+    {
+        var generation = Interlocked.Increment(ref sectionNavigationGeneration);
+        var targetBounds = new Rect();
+        heading.GetDrawingRect(targetBounds);
+        contentRoot.OffsetDescendantRectToMyCoords(heading, targetBounds);
+        workspaceScroll.ScrollTo(0, Math.Max(0, targetBounds.Top - Dp(8)));
+        heading.GetDrawingRect(targetBounds);
+        heading.RequestRectangleOnScreen(targetBounds, immediate: true);
+
+        // Focus changes occur only after a deliberate shortcut activation. TalkBack receives
+        // accessibility focus; keyboard and switch users receive ordinary focus as a fallback.
+        workspaceScroll.PostOnAnimation(new UiRunnable(() =>
+        {
+            if (generation != Interlocked.Read(ref sectionNavigationGeneration) || IsFinishing || IsDestroyed ||
+                !workspaceVisible || workspacePanel.Visibility != ViewStates.Visible ||
+                !workspaceScroll.IsAttachedToWindow || !heading.IsAttachedToWindow)
+                return;
+
+            var firstActionable = FirstEnabledAction(actionCandidates);
+            var accessibilityManager = (global::Android.Views.Accessibility.AccessibilityManager?)
+                GetSystemService(global::Android.Content.Context.AccessibilityService);
+            if (accessibilityManager?.IsTouchExplorationEnabled == true)
+            {
+                if (!heading.PerformAccessibilityAction(Android.Views.Accessibility.Action.AccessibilityFocus, null) &&
+                    firstActionable is { Enabled: true, Visibility: ViewStates.Visible })
+                    firstActionable.PerformAccessibilityAction(Android.Views.Accessibility.Action.AccessibilityFocus, null);
+                return;
+            }
+
+            if (firstActionable is { Enabled: true, Visibility: ViewStates.Visible })
+                firstActionable.RequestFocus();
+        }));
+    }
+
+    public override void OnWindowFocusChanged(bool hasFocus)
+    {
+        base.OnWindowFocusChanged(hasFocus);
+        if (hasFocus) CompletePendingWorkspaceNavigation();
+    }
+
+    private void InvalidateWorkspaceNavigation(bool dismissDialog)
+    {
+        Interlocked.Increment(ref sectionNavigationGeneration);
+        pendingWorkspaceNavigation = null;
+        if (!dismissDialog) return;
+        var dialog = workspaceNavigationDialog;
+        workspaceNavigationDialog = null;
+        dialog?.Dismiss();
+    }
+
+    private static View? FirstEnabledAction(params View[] candidates) =>
+        candidates.FirstOrDefault(candidate => candidate.Enabled && candidate.Visibility == ViewStates.Visible);
 
     private void LaunchPicker()
     {
@@ -508,6 +731,8 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
         bool showWorkspace = true,
         bool advanceGeneration = true)
     {
+        InvalidateWorkspaceNavigation(dismissDialog: true);
+        StopHeartbeatTest(statusMessage: null);
         var previousPath = document?.PrivatePath;
         var previousId = document?.Id;
         document = loaded;
@@ -544,7 +769,6 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
         DisplayStageFrame(loaded.Preview, TattooStageCatalog.All[0], 0,
             preparedPreview, preparedTattoo: null, announceReady: false);
         SetStatus($"Loaded {loaded.DisplayName}. Original format: {PhotoFileFormats.Get(loaded.Format).DisplayName}. Stage 1 of {TattooStageCatalog.All.Count} is ready.");
-        stageSlider.RequestFocus();
         if (previousPath is not null && !string.Equals(previousPath, loaded.PrivatePath, StringComparison.Ordinal))
             TryDeletePrivateImport(previousPath);
     }
@@ -658,6 +882,7 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
         anatomy.SetPreparedTattoo(preparedTattoo, stage.IsAnatomicalPlacement);
         anatomy.SetState(anatomyState, animateFocus: stage.IsAnatomicalPlacement);
         UpdateStageText(sliderValue);
+        UpdatePlacementSummary();
         if (offlineDescriptions.TryGetValue(stage.Kind, out var description))
         {
             offlineAiDescription.Text = description;
@@ -673,6 +898,12 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
         stageHeading.Text = $"Stage {StageIndex(stage)} of {TattooStageCatalog.All.Count}: {stage.Name}";
         stageDescription.Text = stage.Description;
         stageValue.Text = $"Value {value} percent";
+        var summaryState = displayedStage.Kind == stage.Kind && displayedStageValue == value
+            ? "Current preview."
+            : "Selected stage. Loading preview.";
+        stageHeading.ContentDescription =
+            $"{summaryState} Stage {StageIndex(stage)} of {TattooStageCatalog.All.Count}: {stage.Name}. " +
+            $"Value {value} percent. {stage.Description}";
         previousButton.Enabled = StageIndex(stage) > 1;
         nextButton.Enabled = StageIndex(stage) < TattooStageCatalog.All.Count;
         stageSlider.ContentDescription = $"Visual development stage. Stage {StageIndex(stage)} of {TattooStageCatalog.All.Count}: {stage.Name}. {value} percent.";
@@ -847,6 +1078,7 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
 
     private async Task EnableOfflineAiAsync()
     {
+        StopHeartbeatTest(statusMessage: null);
         var operationGeneration = Interlocked.Increment(ref aiOperationGeneration);
         var priorCancellation = aiCancellation;
         var operationCancellation = CancellationTokenSource.CreateLinkedTokenSource(
@@ -951,7 +1183,8 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
                 SetBusy(true,
                     "Opening the verified offline model and preparing descriptions sequentially. No photo data leaves this device.");
                 aiPreprocessing = true;
-                if (foreground) heartbeat.Start();
+                if (foreground && !heartbeat.Start())
+                    SetStatus("The processing heartbeat is unavailable. Offline description preparation continues with visible progress.");
             });
             var stageProgress = new CallbackProgress<OfflineDescriptionProgress>(update =>
                 TrackTask(RunOnUiThreadAsync(() =>
@@ -963,8 +1196,10 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
                     progress.Max = update.Total;
                     progress.Progress = update.Completed;
                     progress.ContentDescription = $"Offline description preparation, {update.Completed} of {update.Total} stages";
-                    if (update.Completed == 1 || update.Completed == update.Total || update.Completed % 4 == 0)
-                        SetStatus($"Preparing offline descriptions: {update.Completed} of {update.Total}, {update.Stage.Name}.");
+                    offlineAiDescription.Text =
+                        $"Preparing offline descriptions: {update.Completed} of {update.Total}, {update.Stage.Name}.";
+                    offlineAiDescription.ContentDescription =
+                        "Offline AI visual description. " + offlineAiDescription.Text;
                 })));
             var imageSource = new DelegatingStageDescriptionImageSource((stage, maximumDimension, stageToken) =>
                 RenderOfflineDescriptionStageAsync(source, stage, anatomySnapshot, maximumDimension, stageToken));
@@ -982,6 +1217,11 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
                 var selected = TattooStageCatalog.FromSlider(stageSlider.Progress);
                 offlineAiDescription.Text = offlineDescriptions[selected.Kind];
                 offlineAiDescription.ContentDescription = "Offline AI visual description. " + offlineAiDescription.Text;
+                heartbeat.Stop();
+                aiPreprocessing = false;
+                aiWorkActive = false;
+                if (ReferenceEquals(aiCancellation, operationCancellation)) aiCancellation = null;
+                SetBusy(false);
                 SetStatus($"Offline descriptions are ready for all {batch.Descriptions.Count} stages.");
             });
         }
@@ -1184,6 +1424,7 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
     {
         InvalidateOfflineDescriptions();
         anatomy.SetState(anatomyState, animate);
+        UpdatePlacementSummary();
         if (announce) AnnounceAnatomy();
     }
 
@@ -1197,11 +1438,34 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
 
     private void AnnounceAnatomy()
     {
+        UpdatePlacementSummary();
         var region = BodyRegionCatalog.Get(anatomyState.Region);
         SetStatus($"Anatomical selection updated. {region.AccessibleDescription}; " +
                   $"{AnatomicalDefaults.DescribeHeight(anatomyState.HeightCentimeters)}; " +
                   $"{AnatomicalDefaults.SkinToneFromSlider(anatomyState.SkinToneValue).Description} complexion; " +
                   $"rotation {anatomyState.RotationDegrees:0} degrees; camera distance {anatomyState.CameraDistance:0.0}.");
+    }
+
+    private void UpdatePlacementSummary()
+    {
+        var region = BodyRegionCatalog.Get(anatomyState.Region);
+        var sex = anatomyState.Sex == AnatomicalSex.Male ? "Male" : "Female";
+        var tone = AnatomicalDefaults.SkinToneFromSlider(anatomyState.SkinToneValue).Description;
+        var placement = displayedStage.IsAnatomicalPlacement
+            ? "Tattoo placement preview active."
+            : "Tattoo placement preview is not active at this stage.";
+        var rotationDistance = Math.Abs((AnatomicalWorkflowState.PreferredRotation(anatomyState.Region) -
+                                         anatomyState.RotationDegrees) % 360);
+        rotationDistance = Math.Min(rotationDistance, 360 - rotationDistance);
+        var visibility = rotationDistance > 100
+            ? " The selected surface is turned away; rotate it toward the viewer to show the placement."
+            : string.Empty;
+        placementSummary.Text =
+            $"Current placement. {sex} anatomical model. Selected region: {region.AccessibleDescription}. " +
+            $"{AnatomicalDefaults.DescribeHeight(anatomyState.HeightCentimeters)}; {tone} complexion; " +
+            $"rotation {anatomyState.RotationDegrees:0} degrees; camera distance {anatomyState.CameraDistance:0.0}. " +
+            placement + visibility;
+        placementSummary.ContentDescription = placementSummary.Text;
     }
 
     private void OpenBlackWidow()
@@ -1221,6 +1485,7 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
 
     private void SetBusy(bool busy, string? message = null)
     {
+        interfaceBusy = busy;
         progress.Visibility = busy ? ViewStates.Visible : ViewStates.Gone;
         cancelWorkButton.Visibility = busy && aiWorkActive ? ViewStates.Visible : ViewStates.Gone;
         cancelWorkButton.Enabled = busy && aiWorkActive;
@@ -1232,7 +1497,73 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
         previousButton.Enabled = !busy && StageIndex(TattooStageCatalog.FromSlider(stageSlider.Progress)) > 1;
         nextButton.Enabled = !busy && StageIndex(TattooStageCatalog.FromSlider(stageSlider.Progress)) < TattooStageCatalog.All.Count;
         offlineAiCheckBox.Enabled = !busy && document is not null;
+        heartbeatTestButton.Enabled = heartbeatTestActive || !busy;
         if (message is not null) SetStatus(message);
+    }
+
+    private async Task RunHeartbeatTestAsync()
+    {
+        if (interfaceBusy || aiWorkActive || aiPreprocessing)
+        {
+            SetStatus("The heartbeat test is unavailable while another operation is active.");
+            return;
+        }
+
+        var generation = Interlocked.Increment(ref heartbeatTestGeneration);
+        heartbeatTestCancellation?.Cancel();
+        heartbeatTestCancellation?.Dispose();
+        var cancellation = CancellationTokenSource.CreateLinkedTokenSource(
+            activityCancellation?.Token ?? CancellationToken.None);
+        heartbeatTestCancellation = cancellation;
+        if (!heartbeat.Start())
+        {
+            if (ReferenceEquals(heartbeatTestCancellation, cancellation)) heartbeatTestCancellation = null;
+            cancellation.Dispose();
+            SetStatus("The processing heartbeat is unavailable. Visual processing progress remains available.");
+            return;
+        }
+
+        heartbeatTestActive = true;
+        heartbeatTestButton.Text = "Stop heartbeat test";
+        heartbeatTestButton.ContentDescription =
+            "Stop heartbeat test. Stops the three-pulse processing heartbeat demonstration.";
+        offlineAiCheckBox.Enabled = false;
+        SetStatus("Processing heartbeat test started. Three pulses will play over about ten seconds.");
+        try
+        {
+            await Task.Delay(HeartbeatTestDurationMilliseconds, cancellation.Token).ConfigureAwait(false);
+            await RunOnUiThreadAsync(() =>
+            {
+                if (generation == Interlocked.Read(ref heartbeatTestGeneration) &&
+                    heartbeatTestActive && !IsFinishing && !IsDestroyed)
+                    StopHeartbeatTest("Processing heartbeat test complete.");
+            }).ConfigureAwait(false);
+        }
+        catch (System.OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+        }
+        finally
+        {
+            if (ReferenceEquals(heartbeatTestCancellation, cancellation)) heartbeatTestCancellation = null;
+            cancellation.Dispose();
+        }
+    }
+
+    private void StopHeartbeatTest(string? statusMessage)
+    {
+        var wasActive = heartbeatTestActive;
+        Interlocked.Increment(ref heartbeatTestGeneration);
+        var cancellation = heartbeatTestCancellation;
+        heartbeatTestCancellation = null;
+        cancellation?.Cancel();
+        heartbeatTestActive = false;
+        heartbeat.Stop();
+        heartbeatTestButton.Text = "Test processing heartbeat";
+        heartbeatTestButton.ContentDescription =
+            "Test processing heartbeat. Plays three processing heartbeat pulses over about ten seconds using the same offline-processing audio path.";
+        heartbeatTestButton.Enabled = !interfaceBusy;
+        offlineAiCheckBox.Enabled = !interfaceBusy && document is not null;
+        if (wasActive && statusMessage is not null) SetStatus(statusMessage);
     }
 
     private void CancelOfflineAiWork()
@@ -1500,6 +1831,7 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
             stageCache.Clear();
             CancelStageRenderForMemoryPressure();
             restoreCancellation?.Cancel();
+            StopHeartbeatTest("Processing heartbeat test stopped because Android reported memory pressure.");
         }
         if (level == TrimMemory.RunningCritical || level >= TrimMemory.UiHidden)
         {
@@ -1515,6 +1847,7 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
         CancelStageRenderForMemoryPressure();
         importCancellation?.Cancel();
         restoreCancellation?.Cancel();
+        StopHeartbeatTest("Processing heartbeat test stopped because Android reported low memory.");
         StopOfflineAi(
             "Offline AI was stopped because Android reported low memory. Re-enable it to prepare descriptions again.",
             updateStatus: true);
@@ -1540,12 +1873,15 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
     {
         base.OnResume();
         foreground = true;
-        if (aiPreprocessing) heartbeat.Start();
+        if (aiPreprocessing && !heartbeat.Start())
+            SetStatus("The processing heartbeat is unavailable. Offline description preparation continues with visible progress.");
     }
 
     protected override void OnStop()
     {
         foreground = false;
+        InvalidateWorkspaceNavigation(dismissDialog: true);
+        StopHeartbeatTest("Processing heartbeat test stopped because TATAPP left the foreground.");
         if (aiWorkActive || offlineAiCheckBox.Checked || offlineDescriptions.Count > 0)
             StopOfflineAi(
                 "Offline AI was stopped while TATAPP was in the background. Re-enable it to prepare descriptions again.",
@@ -1553,8 +1889,20 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
         base.OnStop();
     }
 
-    public override void OnBackPressed()
+    public override void OnBackPressed() => HandleBack();
+
+    private void HandleBack()
     {
+        if (workspaceNavigationDialog is { IsShowing: true } navigationDialog)
+        {
+            navigationDialog.Cancel();
+            return;
+        }
+        if (heartbeatTestActive)
+        {
+            StopHeartbeatTest("Processing heartbeat test stopped.");
+            return;
+        }
         if (aiWorkActive)
         {
             CancelOfflineAiWork();
@@ -1562,6 +1910,7 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
         }
         if (workspacePanel.Visibility == ViewStates.Visible)
         {
+            InvalidateWorkspaceNavigation(dismissDialog: true);
             workspaceVisible = false;
             workspacePanel.Visibility = ViewStates.Gone;
             startPanel.Visibility = ViewStates.Visible;
@@ -1572,14 +1921,33 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
         Finish();
     }
 
+    private void RegisterBackCallback()
+    {
+        if (!OperatingSystem.IsAndroidVersionAtLeast(33)) return;
+        backInvokedCallback = new BackInvokedCallback(HandleBack);
+        OnBackInvokedDispatcher.RegisterOnBackInvokedCallback(
+            Android.Window.IOnBackInvokedDispatcher.PriorityDefault, backInvokedCallback);
+    }
+
+    private void UnregisterBackCallback()
+    {
+        if (!OperatingSystem.IsAndroidVersionAtLeast(33) || backInvokedCallback is null) return;
+        OnBackInvokedDispatcher.UnregisterOnBackInvokedCallback(backInvokedCallback);
+        backInvokedCallback.Dispose();
+        backInvokedCallback = null;
+    }
+
     protected override void OnDestroy()
     {
+        UnregisterBackCallback();
+        InvalidateWorkspaceNavigation(dismissDialog: true);
         Interlocked.Increment(ref aiOperationGeneration);
         activityCancellation?.Cancel();
         importCancellation?.Cancel();
         restoreCancellation?.Cancel();
         aiCancellation?.Cancel();
         renderCancellation?.Cancel();
+        StopHeartbeatTest(statusMessage: null);
         heartbeat.Stop();
         activeDialog?.Cancel();
         activeDialog?.Dismiss();
@@ -1588,6 +1956,17 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
         lock (taskSynchronization) pending = activeTasks.ToArray();
         _ = DisposeAfterJobsAsync(pending);
         base.OnDestroy();
+    }
+
+    private sealed class BackInvokedCallback(Action action) : Java.Lang.Object,
+        Android.Window.IOnBackInvokedCallback
+    {
+        public void OnBackInvoked() => action();
+    }
+
+    private sealed class UiRunnable(Action action) : Java.Lang.Object, Java.Lang.IRunnable
+    {
+        public void Run() => action();
     }
 
     private async Task DisposeAfterJobsAsync(Task[] pending)
@@ -1863,6 +2242,14 @@ public sealed class MainActivity : Activity, SeekBar.IOnSeekBarChangeListener
     {
         public void OnCancel(IDialogInterface? dialog) => canceled();
     }
+
+    private sealed class DialogDismissListener(Action dismissed) : Java.Lang.Object,
+        IDialogInterfaceOnDismissListener
+    {
+        public void OnDismiss(IDialogInterface? dialog) => dismissed();
+    }
+
+    private sealed record PendingWorkspaceNavigation(long Generation, View Invoker, int? Selection);
 
     private sealed class CoalescingModelInstallProgress(Action<ModelInstallProgress> callback)
         : IProgress<ModelInstallProgress>

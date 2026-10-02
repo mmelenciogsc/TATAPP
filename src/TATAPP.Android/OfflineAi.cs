@@ -602,17 +602,46 @@ internal sealed class OfflineAiService : IDisposable
 
 internal sealed class AndroidProcessingHeartbeat : IAndroidAudioFeedback
 {
+    private const double AndroidGain = ProcessingHeartbeatWaveform.MaximumCadenceGain;
+    private const int MaximumStartAttempts = 2;
+    private const int MaximumWarningCount = 4;
     private readonly object synchronization = new();
-    private readonly ToneGenerator tone = new(Android.Media.Stream.Music, 18);
-    private Timer? timer;
+    private AudioTrack? audioTrack;
+    private int warningsLogged;
     private bool disposed;
 
-    public void Start()
+    public bool Start()
     {
         lock (synchronization)
         {
-            ObjectDisposedException.ThrowIf(disposed, this);
-            timer ??= new Timer(_ => Beat(), null, TimeSpan.FromMilliseconds(900), TimeSpan.FromSeconds(4));
+            if (disposed)
+            {
+                LogHeartbeatFailure("start_disposed", nameof(ObjectDisposedException));
+                return false;
+            }
+            if (audioTrack?.PlayState == PlayState.Playing) return true;
+
+            for (var attempt = 1; attempt <= MaximumStartAttempts; attempt++)
+            {
+                try
+                {
+                    ReleaseAudioTrack();
+                    audioTrack = CreatePlayingAudioTrack();
+                    return true;
+                }
+                catch (Exception exception) when (IsMemoryExhaustion(exception))
+                {
+                    LogHeartbeatFailure("start_memory_exhausted", exception.GetType().Name);
+                    ReleaseAudioTrack();
+                    return false;
+                }
+                catch (Exception exception) when (IsRecoverableAudioFailure(exception))
+                {
+                    LogHeartbeatFailure($"start_attempt_{attempt}", exception.GetType().Name);
+                    ReleaseAudioTrack();
+                }
+            }
+            return false;
         }
     }
 
@@ -620,9 +649,8 @@ internal sealed class AndroidProcessingHeartbeat : IAndroidAudioFeedback
     {
         lock (synchronization)
         {
-            timer?.Dispose();
-            timer = null;
-            tone.StopTone();
+            StopPlayback();
+            ReleaseAudioTrack();
         }
     }
 
@@ -632,19 +660,95 @@ internal sealed class AndroidProcessingHeartbeat : IAndroidAudioFeedback
         {
             if (disposed) return;
             disposed = true;
-            timer?.Dispose();
-            timer = null;
-            tone.StopTone();
-            tone.Release();
-            tone.Dispose();
+            StopPlayback();
+            ReleaseAudioTrack();
         }
     }
 
-    private void Beat()
+    private AudioTrack CreatePlayingAudioTrack()
     {
-        lock (synchronization)
+        var samples = ProcessingHeartbeatWaveform.CreateCadenceBuffer(AndroidGain);
+        using var attributesBuilder = new AudioAttributes.Builder();
+        _ = attributesBuilder.SetUsage(AudioUsageKind.AssistanceAccessibility);
+        _ = attributesBuilder.SetContentType(AudioContentType.Sonification);
+        using var attributes = attributesBuilder.Build() ??
+                               throw new InvalidOperationException("Android audio attributes are unavailable.");
+        using var formatBuilder = new AudioFormat.Builder();
+        _ = formatBuilder.SetEncoding(Android.Media.Encoding.Pcm16bit);
+        _ = formatBuilder.SetSampleRate(ProcessingHeartbeatWaveform.SampleRate);
+        _ = formatBuilder.SetChannelMask(ChannelOut.Mono);
+        using var format = formatBuilder.Build() ??
+                           throw new InvalidOperationException("Android heartbeat audio format is unavailable.");
+        var track = new AudioTrack(attributes, format, samples.Length * sizeof(short),
+            AudioTrackMode.Static, AudioManager.AudioSessionIdGenerate);
+        try
         {
-            if (!disposed && timer is not null) tone.StartTone(Tone.PropBeep, 110);
+            // MODE_STATIC normally reports NoStaticData until its first complete write.
+            if (track.State == AudioTrackState.Uninitialized)
+                throw new InvalidOperationException("Android could not initialize heartbeat audio.");
+            var written = track.Write(samples, 0, samples.Length, WriteMode.Blocking);
+            if (written != samples.Length)
+                throw new InvalidOperationException("Android could not load the complete heartbeat cadence.");
+            if (track.State != AudioTrackState.Initialized)
+                throw new InvalidOperationException("Android did not initialize the written heartbeat audio.");
+            if (track.SetLoopPoints(0, samples.Length, -1) != TrackStatus.Success)
+                throw new InvalidOperationException("Android could not configure heartbeat looping.");
+            if (track.SetPlaybackHeadPosition(0) != TrackStatus.Success)
+                throw new InvalidOperationException("Android could not seek the heartbeat to its pre-roll.");
+            track.Play();
+            if (track.PlayState != PlayState.Playing)
+                throw new InvalidOperationException("Android did not start heartbeat playback.");
+            return track;
         }
+        catch
+        {
+            ReleaseTrack(track);
+            throw;
+        }
+    }
+
+    private void StopPlayback()
+    {
+        if (audioTrack is null || audioTrack.State != AudioTrackState.Initialized) return;
+        try
+        {
+            if (audioTrack.PlayState != PlayState.Stopped) audioTrack.Stop();
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or
+                                               Java.Lang.IllegalStateException)
+        {
+            LogHeartbeatFailure("stop", exception.GetType().Name);
+        }
+    }
+
+    private void ReleaseAudioTrack()
+    {
+        var track = audioTrack;
+        audioTrack = null;
+        if (track is not null) ReleaseTrack(track);
+    }
+
+    private void ReleaseTrack(AudioTrack track)
+    {
+        try { track.Release(); }
+        catch (Java.Lang.IllegalStateException exception)
+        {
+            LogHeartbeatFailure("release", exception.GetType().Name);
+        }
+        finally { track.Dispose(); }
+    }
+
+    private static bool IsMemoryExhaustion(Exception exception) => exception is
+        OutOfMemoryException or Java.Lang.OutOfMemoryError;
+
+    private static bool IsRecoverableAudioFailure(Exception exception) => exception is
+        InvalidOperationException or Java.Lang.IllegalArgumentException or Java.Lang.IllegalStateException;
+
+    private void LogHeartbeatFailure(string phase, string exceptionType)
+    {
+        if (warningsLogged >= MaximumWarningCount) return;
+        warningsLogged++;
+        global::Android.Util.Log.Warn("TATAPP.Audio",
+            $"Heartbeat phase={phase} exception={exceptionType}");
     }
 }

@@ -84,6 +84,22 @@ non-exported and its package uses a different signer. This validates one
 physical full-batch workflow, not broad output quality, thermal,
 repeated-session, cancellation/recreation, or human TalkBack behavior. In
 particular, the observed anatomical-stage descriptions were weak.
+
+A later Poco listening check found the former short timer-driven music-stream
+cue inaudible even though preprocessing completed. Android now uses the
+accessibility-volume route and keeps one four-second static loop active: about
+900 ms of pre-roll, the shared 420 ms two-note pulse at an Android-only bounded
+gain, then silence. The Offline descriptions section includes **Test processing
+heartbeat**, which plays the exact production path for three pulses in about ten
+seconds and can be stopped with the same button or Back. On 2026-10-02, the
+signed 20,198,175-byte APK (SHA-256
+`7e9469cdf2c8f87e52c6b5fce8d546f14159eb5358d601b7c3f1d3c095715a77`)
+replacement-installed on a Poco F7 Ultra and its installed `base.apk` matched
+byte-for-byte. With Google TalkBack enabled and accessibility volume at 10/15,
+the user heard all three two-tone pulses across about ten seconds and TalkBack
+announced start and completion. This validates only the direct production-path
+heartbeat test, not a fresh full 16-stage AI or readiness-announcement run;
+visible status/progress remains authoritative.
 Policy still admits the model only when every API, ABI, storage, current-memory,
 CPU, and acceleration threshold passes. No model weights are stored in this
 repository or redistributed in the APK.
@@ -133,11 +149,14 @@ API 36 x86_64 16 KiB-emulator instrumentation recorded 27 passed, 0 failed,
 and 2 skipped: loaded-model integrated UI/heartbeat and human TalkBack. The
 later Poco ARM64 run supplied physical evidence for the full loaded-model
 preload/ready/heartbeat path; no human listener completed the full TalkBack
-script.
+script. A 2026-10-02 connected-instrumentation attempt installed the target app
+but HyperOS rejected the temporary harness with
+`INSTALL_FAILED_USER_RESTRICTED`; it is not a new harness pass, so the earlier
+27-pass run remains historical evidence.
 
 The signed evaluation APK is
-`artifacts/android/TATAPP-0.3.0-evaluation-arm64-x86_64.apk` (20,140,831 bytes,
-SHA-256 `14928712d2600511a176bcfe197674e282068def2950dea0378a9817f9ed24fc`;
+`artifacts/android/TATAPP-0.3.0-evaluation-arm64-x86_64.apk` (20,198,175 bytes,
+SHA-256 `7e9469cdf2c8f87e52c6b5fce8d546f14159eb5358d601b7c3f1d3c095715a77`;
 signer SHA-256 `eac3df9aba3e08437bc988682566f072e52d2dde6bda373daa998cdee74d9f90`).
 It contains `arm64-v8a` and `x86_64`, targets API 36 with minimum API 26,
 declares only `INTERNET`, passed v2/v3 signature checks, and has all 132 packaged

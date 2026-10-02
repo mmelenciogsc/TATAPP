@@ -135,7 +135,7 @@ rg -Uq '(?s)public void LaunchCamera\(Activity activity, Uri output, int request
 rg -q 'AddTransient<OfflineAiService>' "$repo_root/src/TATAPP.Android/TatappApplication.cs"
 rg -q 'RoleManager.RoleBrowser' "$repo_root/src/TATAPP.Android/AndroidPlatformServices.cs"
 rg -q 'BrowserProbeUrl = "https://www.example.com/"' "$repo_root/src/TATAPP.Android/AndroidPlatformServices.cs"
-rg -q 'intent.SetPackage(browserPackage)' "$repo_root/src/TATAPP.Android/AndroidPlatformServices.cs"
+rg -q 'intent\.SetPackage\(browserPackage\)' "$repo_root/src/TATAPP.Android/AndroidPlatformServices.cs"
 rg -q 'No default web browser is configured' "$repo_root/src/TATAPP.Android/AndroidPlatformServices.cs"
 if rg -q 'com[.]android[.]chrome' "$repo_root/src/TATAPP.Android/AndroidPlatformServices.cs"; then
   printf 'The external-link launcher must not hardcode a browser package.\n' >&2
@@ -156,8 +156,114 @@ rg -q 'capture = anatomy.CapturePlacement\(preparedTattoo!, anatomySnapshot, 1f\
 rg -Uq '(?s)public Bitmap CapturePlacement\(Bitmap preparedTattoo, AnatomicalWorkflowState placementState,.*?finally.*?tattoo = previousTattoo;.*?state = previousState;.*?placementVisible = previousPlacementVisible;.*?focusProgress = previousFocus;' \
   "$repo_root/src/TATAPP.Android/AnatomyView.cs"
 rg -q 'ApplyRotation\(delta \* 0.45, notifySettled: false\)' "$repo_root/src/TATAPP.Android/AnatomyView.cs"
+rg -q 'SetTitle\("Go to workspace section"\)' "$repo_root/src/TATAPP.Android/MainActivity.cs"
+for workspace_choice in \
+  'Image actions and workspace start' \
+  'Stage controls' \
+  'Body placement controls' \
+  'Offline descriptions'; do
+  rg -q "\"$workspace_choice\"" "$repo_root/src/TATAPP.Android/MainActivity.cs"
+done
+workspace_navigation_count=$(rg -c '= CreateWorkspaceNavigationButton\(\)|AddView\(CreateWorkspaceNavigationButton\(\)\)' \
+  "$repo_root/src/TATAPP.Android/MainActivity.cs")
+[[ "$workspace_navigation_count" == 5 ]] || {
+  printf 'Expected five repeated Workspace navigation controls; found %s.\n' "$workspace_navigation_count" >&2
+  exit 1
+}
+rg -q 'offlineAiDescription.AccessibilityLiveRegion = AccessibilityLiveRegion.None' \
+  "$repo_root/src/TATAPP.Android/MainActivity.cs"
+if rg -q 'SetStatus\(\$"Preparing offline descriptions:' "$repo_root/src/TATAPP.Android/MainActivity.cs"; then
+  printf 'Offline description stage progress must not use the live status region.\n' >&2
+  exit 1
+fi
+rg -Uq '(?s)offlineDescriptions.Clear\(\);.*?heartbeat.Stop\(\);.*?SetBusy\(false\);.*?SetStatus\(\$"Offline descriptions are ready for all \{batch\.Descriptions\.Count\} stages\."\);' \
+  "$repo_root/src/TATAPP.Android/MainActivity.cs"
+ready_announcement_count=$(rg -c 'SetStatus\(\$"Offline descriptions are ready for all \{batch\.Descriptions\.Count\} stages\."\);' \
+  "$repo_root/src/TATAPP.Android/MainActivity.cs")
+[[ "$ready_announcement_count" == 1 ]] || {
+  printf 'Expected exactly one polite offline-ready status update; found %s.\n' "$ready_announcement_count" >&2
+  exit 1
+}
+if rg -q 'AnnounceStatusOnce|EventTypes\.Announcement|AccessibilityLiveRegion = AccessibilityLiveRegion.None' \
+  "$repo_root/src/TATAPP.Android/AndroidPlatformServices.cs"; then
+  printf 'Offline readiness must use one ordinary update on the stable polite status region.\n' >&2
+  exit 1
+fi
+rg -q 'new AudioTrack\(attributes, format' "$repo_root/src/TATAPP.Android/OfflineAi.cs"
+rg -q 'AudioTrackMode.Static' "$repo_root/src/TATAPP.Android/OfflineAi.cs"
+rg -q 'CreateCadenceBuffer\(AndroidGain\)' "$repo_root/src/TATAPP.Android/OfflineAi.cs"
+rg -q 'AndroidGain = ProcessingHeartbeatWaveform.MaximumCadenceGain' \
+  "$repo_root/src/TATAPP.Android/OfflineAi.cs"
+rg -q 'SetUsage\(AudioUsageKind.AssistanceAccessibility\)' "$repo_root/src/TATAPP.Android/OfflineAi.cs"
+rg -q 'SetContentType\(AudioContentType.Sonification\)' "$repo_root/src/TATAPP.Android/OfflineAi.cs"
+rg -Uq '(?s)new AudioTrack\(attributes, format,.*?AudioTrackMode\.Static.*?track\.State == AudioTrackState\.Uninitialized.*?track\.Write\(samples, 0, samples\.Length, WriteMode\.Blocking\).*?written != samples\.Length.*?track\.State != AudioTrackState\.Initialized.*?SetLoopPoints\(0, samples\.Length, -1\).*?SetPlaybackHeadPosition\(0\).*?track\.Play\(\).*?track\.PlayState != PlayState\.Playing' \
+  "$repo_root/src/TATAPP.Android/OfflineAi.cs"
+if rg -Uq '(?s)new AudioTrack\(attributes, format,.*?if \(track\.State != AudioTrackState\.Initialized\).*?track\.Write' \
+  "$repo_root/src/TATAPP.Android/OfflineAi.cs"; then
+  printf 'MODE_STATIC must accept NoStaticData until its first complete write.\n' >&2
+  exit 1
+fi
+rg -q 'SetLoopPoints\(0, samples.Length, -1\) != TrackStatus.Success' \
+  "$repo_root/src/TATAPP.Android/OfflineAi.cs"
+rg -q 'SetPlaybackHeadPosition\(0\) != TrackStatus.Success' \
+  "$repo_root/src/TATAPP.Android/OfflineAi.cs"
+rg -q 'track.PlayState != PlayState.Playing' "$repo_root/src/TATAPP.Android/OfflineAi.cs"
+rg -q 'MaximumStartAttempts = 2' "$repo_root/src/TATAPP.Android/OfflineAi.cs"
+rg -q 'MaximumWarningCount = 4' "$repo_root/src/TATAPP.Android/OfflineAi.cs"
+rg -q 'public bool Start\(\)' "$repo_root/src/TATAPP.Android/OfflineAi.cs"
+if rg -q 'ToneGenerator|RequestAudioFocus|SetVolume|AdjustStreamVolume|SetStreamVolume|AudioUsageKind.AssistanceSonification|Stream.Accessibility|Stream.Alarm|audioUnavailable|new Timer' \
+  "$repo_root/src/TATAPP.Android/OfflineAi.cs"; then
+  printf 'Heartbeat must use the static accessibility route without timers, focus, or volume mutation.\n' >&2
+  exit 1
+fi
+rg -Uq '(?s)catch \(Exception exception\) when \(IsMemoryExhaustion\(exception\)\).*?ReleaseAudioTrack\(\);.*?return false;.*?catch \(Exception exception\) when \(IsRecoverableAudioFailure\(exception\)\)' \
+  "$repo_root/src/TATAPP.Android/OfflineAi.cs"
+rg -Uq '(?s)IsMemoryExhaustion\(Exception exception\).*?OutOfMemoryException or Java\.Lang\.OutOfMemoryError' \
+  "$repo_root/src/TATAPP.Android/OfflineAi.cs"
+recoverable_audio_contract=$(sed -n \
+  '/private static bool IsRecoverableAudioFailure/,/Java.Lang.IllegalStateException;/p' \
+  "$repo_root/src/TATAPP.Android/OfflineAi.cs")
+if rg -q 'OutOfMemory' <<<"$recoverable_audio_contract"; then
+  printf 'Heartbeat OOM must fail immediately without consuming the transient recreate retry.\n' >&2
+  exit 1
+fi
+rg -q 'MaximumCadenceGain = 2.5' "$repo_root/src/TATAPP.Core/OfflineAI/ProcessingHeartbeatWaveform.cs"
+rg -q 'new short\[SampleRate \* PulseCadenceMilliseconds / 1000\]' \
+  "$repo_root/src/TATAPP.Core/OfflineAI/ProcessingHeartbeatWaveform.cs"
+rg -q 'SampleRate \* FirstPulseDelayMilliseconds / 1000' \
+  "$repo_root/src/TATAPP.Core/OfflineAI/ProcessingHeartbeatWaveform.cs"
+rg -q 'TimeSpan.FromMilliseconds\(1200\)' "$repo_root/src/TATAPP.App/OfflineAI/ProcessingHeartbeat.cs"
+rg -q 'ActionButton\("Test processing heartbeat"' "$repo_root/src/TATAPP.Android/MainActivity.cs"
+rg -q '"Stop heartbeat test"' "$repo_root/src/TATAPP.Android/MainActivity.cs"
+rg -q 'HeartbeatTestPulseCount = 3' "$repo_root/src/TATAPP.Android/MainActivity.cs"
+rg -Uq '(?s)if \(!heartbeat\.Start\(\)\).*?Visual processing progress remains available\.' \
+  "$repo_root/src/TATAPP.Android/MainActivity.cs"
+rg -Uq '(?s)heartbeatTestActive = true;.*?offlineAiCheckBox\.Enabled = false;' \
+  "$repo_root/src/TATAPP.Android/MainActivity.cs"
+rg -Uq '(?s)testProcessingHeartbeatControl\(\).*?waitUntil\(\(\) -> "Stop heartbeat test"\.contentEquals\(button\.getText\(\)\), 3_000\).*?unavailable audio is a test failure' \
+  "$repo_root/tests/TATAPP.Android.Instrumentation/src/com/grayscaleconsultants/tatapp/instrumentation/TatappInstrumentation.java"
+heartbeat_instrumentation_contract=$(sed -n \
+  '/private void testProcessingHeartbeatControl/,/private void testOfflineAiFence/p' \
+  "$repo_root/tests/TATAPP.Android.Instrumentation/src/com/grayscaleconsultants/tatapp/instrumentation/TatappInstrumentation.java")
+if rg -q 'if \(!"Stop heartbeat test"|Audio failure leaves the test' \
+  <<<"$heartbeat_instrumentation_contract"; then
+  printf 'Supported-target heartbeat instrumentation must not pass through the unavailable branch.\n' >&2
+  exit 1
+fi
+rg -Uq '(?s)private async Task EnableOfflineAiAsync\(\).*?StopHeartbeatTest\(statusMessage: null\);' \
+  "$repo_root/src/TATAPP.Android/MainActivity.cs"
+rg -Uq '(?s)private void AcceptDocument\(.*?StopHeartbeatTest\(statusMessage: null\);' \
+  "$repo_root/src/TATAPP.Android/MainActivity.cs"
+rg -Uq '(?s)protected override void OnStop\(\).*?StopHeartbeatTest\("Processing heartbeat test stopped because TATAPP left the foreground\."\);' \
+  "$repo_root/src/TATAPP.Android/MainActivity.cs"
+rg -Uq '(?s)protected override void OnDestroy\(\).*?StopHeartbeatTest\(statusMessage: null\);' \
+  "$repo_root/src/TATAPP.Android/MainActivity.cs"
+rg -Uq '(?s)private void HandleBack\(\).*?if \(heartbeatTestActive\).*?StopHeartbeatTest\("Processing heartbeat test stopped\."\);' \
+  "$repo_root/src/TATAPP.Android/MainActivity.cs"
 
-runner='com.grayscaleconsultants.tatapp.instrumentation/com.grayscaleconsultants.tatapp.instrumentation.TatappInstrumentation'
+target_package='com.grayscaleconsultants.tatapp'
+instrumentation_package='com.grayscaleconsultants.tatapp.instrumentation'
+runner="$instrumentation_package/$instrumentation_package.TatappInstrumentation"
 expected_region_count=$(sed -n \
   '/public static IReadOnlyList<BodyRegionDefinition> All/,/^    ];/p' \
   "$repo_root/src/TATAPP.Core/AnatomyProfile.cs" | rg -c 'new\(BodyRegionKind\.')
@@ -165,6 +271,8 @@ expected_region_count=$(sed -n \
   printf 'Could not derive the body-region count from the shared catalog.\n' >&2
   exit 1
 }
+$adb_bin -s "$device_serial" shell am force-stop "$target_package"
+$adb_bin -s "$device_serial" shell am force-stop "$instrumentation_package"
 output=$($adb_bin -s "$device_serial" shell am instrument -w \
   -e expectedRegionCount "$expected_region_count" "$runner")
 printf '%s\n' "$output"

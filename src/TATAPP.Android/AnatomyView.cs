@@ -33,9 +33,9 @@ internal sealed class AnatomyView : View
     public AnatomyView(Context context) : base(context)
     {
         SetMinimumHeight(Dp(330));
-        Focusable = true;
+        Focusable = false;
         Clickable = false;
-        ImportantForAccessibility = ImportantForAccessibility.Yes;
+        ImportantForAccessibility = ImportantForAccessibility.No;
         selectionPaint.SetStyle(Paint.Style.Stroke);
         selectionPaint.StrokeWidth = Dp(5);
         selectionPaint.Color = ResolveColor(global::Android.Resource.Attribute.ColorAccent, Color.Magenta);

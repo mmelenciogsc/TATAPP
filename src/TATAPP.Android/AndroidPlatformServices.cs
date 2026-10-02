@@ -138,6 +138,6 @@ internal sealed class AndroidAccessibilityAnnouncer : IAndroidAccessibilityAnnou
 
 internal interface IAndroidAudioFeedback : IDisposable
 {
-    void Start();
+    bool Start();
     void Stop();
 }

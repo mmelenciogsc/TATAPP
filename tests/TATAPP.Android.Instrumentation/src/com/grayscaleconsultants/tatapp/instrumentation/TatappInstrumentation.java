@@ -26,6 +26,8 @@ import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.accessibility.AccessibilityEvent;
+import android.view.accessibility.AccessibilityManager;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.Button;
 import android.widget.CheckBox;
@@ -110,6 +112,8 @@ public final class TatappInstrumentation extends Instrumentation {
         test("initial focus order follows the primary workflow", this::testInitialFocusOrder);
         test("visible start actions meet the 48dp minimum", this::testTouchTargets);
         test("photo picker result loads a real PNG fixture", this::loadFixtureThroughPicker);
+        test("workspace controls precede non-accessible visual canvases", this::testControlsFirstWorkspace);
+        test("workspace section shortcuts reveal and focus their targets", this::testSectionNavigationShortcuts);
         test("workspace exposes body-picker alternative and defaults", this::testBodyAlternativeAndDefaults);
         test("non-default anatomy controls and model taps stay synchronized", this::testAnatomySynchronization);
         test("stage slider exposes Previous and Next accessibility actions", this::testStageAccessibilityActions);
@@ -124,6 +128,8 @@ public final class TatappInstrumentation extends Instrumentation {
         test("rapid image replacement cannot publish the stale source", this::testRapidImageReplacement);
         test("corrupt input reports an error and preserves the workspace", this::testCorruptInputRecovery);
         test("reduced-motion control is directly operable and stateful", this::testReducedMotion);
+        test("processing-heartbeat test is accessible, bounded, and lifecycle-safe",
+                this::testProcessingHeartbeatControl);
         test("Offline AI cannot falsely report ready", this::testOfflineAiFence);
         test("picker cancellation preserves the loaded design", this::testPickerCancellation);
         test("camera cancellation preserves the loaded design", this::testCameraCancellation);
@@ -134,8 +140,8 @@ public final class TatappInstrumentation extends Instrumentation {
         test("2x text in a compact viewport remains scrollable with 48dp actions", this::testLargeTextCompactLayout);
         test("orientation change recreates or is explicitly unsupported", this::testOrientationChange);
 
-        skip("loaded-model descriptions and heartbeat lifetime",
-                "Needs the external checksum-verified model artifacts installed on an eligible test target; the ordinary instrumentation run does not install them.");
+        skip("loaded-model descriptions and production-preload heartbeat lifetime",
+                "Needs the external checksum-verified model artifacts installed on an eligible test target; the ordinary instrumentation run verifies the same heartbeat player through its dedicated test control.");
         skip("human TalkBack speech quality and Explore by Touch",
                 "Requires a person listening to TalkBack; node semantics are automated above.");
     }
@@ -219,18 +225,313 @@ public final class TatappInstrumentation extends Instrumentation {
                         skinTone.getStateDescription().toString().toLowerCase(Locale.ROOT)
                                 .contains("light brown to medium tan"),
                 "Skin-tone slider exposes its selected complexion as semantic state.");
+    }
+
+    private void testControlsFirstWorkspace() throws Exception {
         List<View> ordered = descendants(root());
-        int headingIndex = indexOfText(ordered, "Anatomical visualization");
-        int previewIndex = -1;
-        for (int index = 0; index < ordered.size(); index++) {
-            CharSequence description = ordered.get(index).getContentDescription();
-            if (description != null && description.toString().startsWith("Interactive male anatomical preview")) {
-                previewIndex = index;
-                break;
+        ScrollView scroll = findFirst(root(), ScrollView.class);
+        TextView stageSection = findExact(root(), "Stage controls");
+        List<TextView> navigationButtons = findAllExact(root(), "Workspace navigation");
+        TextView stageSummary = findByContentPrefixAsText("Current preview.");
+        SeekBar stage = findSeekBar("Visual development stage");
+        TextView previous = findExact(root(), "Previous Stage");
+        TextView next = findExact(root(), "Next Stage");
+        TextView bodySection = findExact(root(), "Body placement");
+        TextView male = findExact(root(), "Male");
+        TextView female = findExact(root(), "Female");
+        Spinner region = findSpinner("Body region");
+        TextView rotateLeft = findExact(root(), "Rotate left");
+        TextView rotateRight = findExact(root(), "Rotate right");
+        TextView zoomIn = findExact(root(), "Zoom in");
+        TextView zoomOut = findExact(root(), "Zoom out");
+        SeekBar bodySize = findSeekBar("Body size");
+        SeekBar skinTone = findSeekBar("Skin tone and complexion");
+        TextView reducedMotion = findExact(root(), "Reduce anatomy motion");
+        TextView placementSummary = findByContentPrefixAsText("Current placement.");
+        TextView offlineSection = findExact(root(), "Offline descriptions");
+        TextView heartbeatTest = findExact(root(), "Test processing heartbeat");
+        TextView offlineToggle = findExact(root(), "Offline AI Describe");
+        TextView offlineSummary = findByContentPrefixAsText("Offline AI visual description.");
+        TextView status = findByContentPrefixAsText("Application status.");
+        TextView previewSection = findExact(root(), "Current previews");
+        ImageView photoPreview = findImagePreview();
+        View anatomyCanvas = findByContentPrefix("Interactive male anatomical preview");
+
+        require(scroll != null && !scroll.isFocusable() && scroll.getContentDescription() == null,
+                "The ScrollView is an unnamed transport container, not an empty focus stop.");
+        require(scroll.getImportantForAccessibility() == View.IMPORTANT_FOR_ACCESSIBILITY_AUTO,
+                "The ScrollView retains automatic scroll accessibility semantics.");
+        AccessibilityNodeInfo scrollNode = scroll.createAccessibilityNodeInfo();
+        require(scrollNode.isScrollable(), "The controls-first workspace remains vertically scrollable.");
+
+        require(stageSection != null && stageSection.isAccessibilityHeading() && stageSummary != null &&
+                        bodySection != null && bodySection.isAccessibilityHeading() &&
+                        offlineSection != null && offlineSection.isAccessibilityHeading() &&
+                        previewSection != null,
+                "Accessible stage, body, and offline-description sections expose headings and summaries.");
+        require(stageSummary.getContentDescription().toString().startsWith("Current preview. Stage 1 of ") &&
+                        placementSummary != null && placementSummary.getContentDescription().toString()
+                                .startsWith("Current placement. Male anatomical model."),
+                "Compact stage and placement proxies expose the current visual state.");
+        require(offlineSummary != null && offlineSummary.isFocusable() &&
+                        offlineSummary.getAccessibilityLiveRegion() == View.ACCESSIBILITY_LIVE_REGION_NONE,
+                "Offline descriptions remain readable and focusable without becoming a live announcement source.");
+        int liveRegions = 0;
+        for (View view : descendants(root()))
+            if (isVisibilityChainVisible(view) &&
+                    view.getAccessibilityLiveRegion() != View.ACCESSIBILITY_LIVE_REGION_NONE)
+                liveRegions++;
+        require(status != null && status.getAccessibilityLiveRegion() == View.ACCESSIBILITY_LIVE_REGION_POLITE &&
+                        liveRegions == 1,
+                "Application status is the sole visible accessibility live region.");
+
+        require(navigationButtons.size() == 5,
+                "Workspace navigation repeats after source, each section heading, and the Offline tail.");
+        require(ordered.indexOf(navigationButtons.get(0)) < ordered.indexOf(stageSection) &&
+                        ordered.indexOf(stageSection) < ordered.indexOf(navigationButtons.get(1)) &&
+                        ordered.indexOf(navigationButtons.get(1)) < ordered.indexOf(stageSummary) &&
+                        ordered.indexOf(stageSummary) < ordered.indexOf(stage) &&
+                        ordered.indexOf(stage) < ordered.indexOf(previous) &&
+                        ordered.indexOf(previous) < ordered.indexOf(next) &&
+                        ordered.indexOf(next) < ordered.indexOf(bodySection) &&
+                        ordered.indexOf(bodySection) < ordered.indexOf(navigationButtons.get(2)) &&
+                        ordered.indexOf(navigationButtons.get(2)) < ordered.indexOf(male) &&
+                        ordered.indexOf(male) < ordered.indexOf(female) &&
+                        ordered.indexOf(female) < ordered.indexOf(region) &&
+                        ordered.indexOf(region) < ordered.indexOf(rotateLeft) &&
+                        ordered.indexOf(rotateLeft) < ordered.indexOf(rotateRight) &&
+                        ordered.indexOf(rotateRight) < ordered.indexOf(zoomIn) &&
+                        ordered.indexOf(zoomIn) < ordered.indexOf(zoomOut) &&
+                        ordered.indexOf(zoomOut) < ordered.indexOf(bodySize) &&
+                        ordered.indexOf(bodySize) < ordered.indexOf(skinTone) &&
+                        ordered.indexOf(skinTone) < ordered.indexOf(reducedMotion) &&
+                        ordered.indexOf(reducedMotion) < ordered.indexOf(placementSummary) &&
+                        ordered.indexOf(placementSummary) < ordered.indexOf(offlineSection) &&
+                        ordered.indexOf(offlineSection) < ordered.indexOf(navigationButtons.get(3)) &&
+                        ordered.indexOf(navigationButtons.get(3)) < ordered.indexOf(heartbeatTest) &&
+                        ordered.indexOf(heartbeatTest) < ordered.indexOf(offlineToggle) &&
+                        ordered.indexOf(offlineToggle) < ordered.indexOf(offlineSummary) &&
+                        ordered.indexOf(offlineSummary) < ordered.indexOf(navigationButtons.get(4)) &&
+                        ordered.indexOf(navigationButtons.get(4)) < ordered.indexOf(previewSection),
+                "Accessible controls follow stage, body placement, then offline-description workflow order.");
+
+        for (TextView navigation : navigationButtons)
+            require(navigation instanceof Button && isVisibilityChainVisible(navigation) &&
+                            navigation.getImportantForAccessibility() != View.IMPORTANT_FOR_ACCESSIBILITY_NO,
+                    "Every repeated Workspace navigation control is a visible native button.");
+        View[] essentialControls = { stage, previous, next, male, female, region, rotateLeft, rotateRight,
+                zoomIn, zoomOut, bodySize, skinTone, reducedMotion, heartbeatTest, offlineToggle };
+        for (View control : essentialControls) {
+            require(control != null && isVisibilityChainVisible(control) &&
+                            control.getImportantForAccessibility() != View.IMPORTANT_FOR_ACCESSIBILITY_NO &&
+                            control.getImportantForAccessibility() != View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS,
+                    "Every essential workspace control remains exposed to accessibility traversal.");
+        }
+
+        runOnMainSync(() -> scroll.scrollTo(0, 0));
+        waitForIdleSync();
+        int initialScrollY = scroll.getScrollY();
+        runOnMainSync(() -> require(scroll.performAccessibilityAction(
+                        AccessibilityNodeInfo.ACTION_SCROLL_FORWARD, null),
+                "The ScrollView rejected an accessibility scroll-forward action."));
+        require(waitUntil(() -> scroll.getScrollY() > initialScrollY, 2_000),
+                "Accessibility scrolling advances the controls-first workspace.");
+        runOnMainSync(() -> scroll.scrollTo(0, 0));
+        waitForIdleSync();
+
+        View[] reachableItems = { stageSummary, stage, previous, next, male, female, region, rotateLeft,
+                rotateRight, zoomIn, zoomOut, bodySize, skinTone, reducedMotion, placementSummary,
+                heartbeatTest, offlineToggle, offlineSummary };
+        int previousScrollY = scroll.getScrollY();
+        for (View item : reachableItems) {
+            boolean[] showAccepted = { false };
+            runOnMainSync(() -> showAccepted[0] = item.performAccessibilityAction(
+                    AccessibilityNodeInfo.AccessibilityAction.ACTION_SHOW_ON_SCREEN.getId(), null));
+            require(showAccepted[0] || intersectsViewport(item, scroll),
+                    "An accessibility item rejected show-on-screen: " + describe(item));
+            require(waitUntil(() -> intersectsViewport(item, scroll), 2_000),
+                    "An accessibility item could not be revealed through its scroll container: " + describe(item));
+            require(scroll.getScrollY() >= previousScrollY,
+                    "Sequential accessibility reveal moved backward before the final control: " + describe(item));
+            previousScrollY = scroll.getScrollY();
+        }
+
+        for (View view : descendants(scroll)) {
+            if (!isVisibilityChainVisible(view) ||
+                    view.getImportantForAccessibility() == View.IMPORTANT_FOR_ACCESSIBILITY_NO ||
+                    view.getImportantForAccessibility() == View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS)
+                continue;
+            AccessibilityNodeInfo node = view.createAccessibilityNodeInfo();
+            if (!node.isFocusable() && (Build.VERSION.SDK_INT < 28 || !node.isScreenReaderFocusable())) continue;
+            String text = node.getText() == null ? "" : node.getText().toString().trim();
+            String description = node.getContentDescription() == null
+                    ? "" : node.getContentDescription().toString().trim();
+            require(!text.isEmpty() || !description.isEmpty(),
+                    "No visible accessibility focus stop is blank: " + describe(view));
+        }
+        runOnMainSync(() -> scroll.scrollTo(0, 0));
+        waitForIdleSync();
+
+        require(photoPreview != null && anatomyCanvas != null &&
+                        ordered.indexOf(previewSection) < ordered.indexOf(photoPreview) &&
+                        ordered.indexOf(photoPreview) < ordered.indexOf(anatomyCanvas),
+                "Full sighted previews remain present at the end of the workspace.");
+        require(previewSection.getImportantForAccessibility() == View.IMPORTANT_FOR_ACCESSIBILITY_NO &&
+                        !photoPreview.isFocusable() &&
+                        photoPreview.getImportantForAccessibility() == View.IMPORTANT_FOR_ACCESSIBILITY_NO &&
+                        !anatomyCanvas.isFocusable() &&
+                        anatomyCanvas.getImportantForAccessibility() == View.IMPORTANT_FOR_ACCESSIBILITY_NO,
+                "The sighted-only preview section is excluded from TalkBack traversal without removing it visually.");
+    }
+
+    private void testSectionNavigationShortcuts() throws Exception {
+        ScrollView scroll = findFirst(root(), ScrollView.class);
+        List<TextView> shortcuts = findAllExact(root(), "Workspace navigation");
+        String[] choiceTexts = {
+                "Image actions and workspace start",
+                "Stage controls",
+                "Body placement controls",
+                "Offline descriptions"
+        };
+        int[] choiceOrder = { 1, 3, 2, 0, 1 };
+        require(scroll != null, "The workspace ScrollView is present for section navigation.");
+        require(shortcuts.size() == 5, "Five local Workspace navigation buttons are present.");
+        android.app.UiAutomation automation = getUiAutomation(
+                android.app.UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES);
+        AccessibilityManager accessibilityManager = (AccessibilityManager)
+                getTargetContext().getSystemService(android.content.Context.ACCESSIBILITY_SERVICE);
+        boolean touchExploration = accessibilityManager != null &&
+                accessibilityManager.isTouchExplorationEnabled();
+        float density = activity.getResources().getDisplayMetrics().density;
+        int minimumTouchPixels = Math.round(48 * density);
+
+        for (TextView shortcut : shortcuts) {
+            require(shortcut instanceof Button && shortcut.getHeight() >= minimumTouchPixels &&
+                            shortcut.isClickable() && shortcut.getContentDescription() != null &&
+                            shortcut.getContentDescription().toString().startsWith("Workspace navigation."),
+                    "Every local navigation control has native Button semantics, a name, and a 48dp target.");
+        }
+
+        runOnMainSync(() -> scroll.scrollTo(0, 0));
+        waitForIdleSync();
+        int cancelScrollY = scroll.getScrollY();
+        TextView cancelInvoker = shortcuts.get(0);
+        runOnMainSync(() -> require(cancelInvoker.performAccessibilityAction(
+                        AccessibilityNodeInfo.ACTION_CLICK, null),
+                "Workspace navigation rejected accessibility click before Cancel validation."));
+        require(waitUntil(() -> activeNodeExact(automation, "Go to workspace section") != null, 2_000),
+                "Workspace navigation opens the native titled dialog.");
+        assertWorkspaceNavigationDialog(automation, choiceTexts);
+        AccessibilityNodeInfo cancelNode = activeNodeExact(automation, "Cancel");
+        require(cancelNode != null && cancelNode.isClickable(), "The native dialog exposes Cancel.");
+        AccessibilityEvent cancelFocusEvent = null;
+        if (touchExploration) {
+            cancelFocusEvent = automation.executeAndWaitForEvent(
+                    () -> require(cancelNode.performAction(AccessibilityNodeInfo.ACTION_CLICK),
+                            "Dialog Cancel rejected accessibility click."),
+                    event -> event.getEventType() == AccessibilityEvent.TYPE_VIEW_ACCESSIBILITY_FOCUSED &&
+                            nodeLabelStartsWith(event.getSource(), "Workspace navigation"),
+                    2_000);
+        } else {
+            require(cancelNode.performAction(AccessibilityNodeInfo.ACTION_CLICK),
+                    "Dialog Cancel rejected accessibility click.");
+        }
+        require(waitUntil(() -> activeNodeExact(automation, "Go to workspace section") == null, 2_000),
+                "Cancel dismisses the workspace navigation dialog.");
+        require(scroll.getScrollY() == cancelScrollY, "Cancel returns without scrolling the workspace.");
+        if (touchExploration) {
+            AccessibilityNodeInfo source = cancelFocusEvent.getSource();
+            require(nodeLabelStartsWith(source, "Workspace navigation"),
+                    "Cancel returns accessibility focus to its invoking navigation button.");
+        }
+
+        runOnMainSync(() -> require(cancelInvoker.performAccessibilityAction(
+                        AccessibilityNodeInfo.ACTION_CLICK, null),
+                "Workspace navigation rejected accessibility click before Back validation."));
+        require(waitUntil(() -> activeNodeExact(automation, "Go to workspace section") != null, 2_000),
+                "Workspace navigation dialog reopened for Back validation.");
+        if (touchExploration) {
+            AccessibilityEvent backFocusEvent = automation.executeAndWaitForEvent(
+                    () -> sendKeyDownUpSync(KeyEvent.KEYCODE_BACK),
+                    event -> event.getEventType() == AccessibilityEvent.TYPE_VIEW_ACCESSIBILITY_FOCUSED &&
+                            nodeLabelStartsWith(event.getSource(), "Workspace navigation"),
+                    2_000);
+            AccessibilityNodeInfo source = backFocusEvent.getSource();
+            require(nodeLabelStartsWith(source, "Workspace navigation"),
+                    "Dialog Back returns accessibility focus to its invoker.");
+        } else {
+            sendKeyDownUpSync(KeyEvent.KEYCODE_BACK);
+        }
+        require(waitUntil(() -> activeNodeExact(automation, "Go to workspace section") == null, 2_000),
+                "Back dismisses the workspace navigation dialog.");
+        require(scroll.getScrollY() == cancelScrollY, "Back dismisses without scrolling the workspace.");
+
+        int previousScrollY = scroll.getScrollY();
+        for (int shortcutIndex = 0; shortcutIndex < shortcuts.size(); shortcutIndex++) {
+            int choiceIndex = choiceOrder[shortcutIndex];
+            TextView shortcut = shortcuts.get(shortcutIndex);
+            TextView target = findExact(root(), choiceIndex == 2 ? "Body placement" : choiceTexts[choiceIndex]);
+            View firstAction = firstActionForWorkspaceChoice(choiceIndex);
+            require(target != null && firstAction != null && firstAction.isEnabled(),
+                    "Every dialog destination has a heading and enabled first action.");
+            require(!target.isFocusable(), "Workspace destination headings are not ordinary focus stops.");
+            runOnMainSync(() -> {
+                target.performAccessibilityAction(AccessibilityNodeInfo.ACTION_CLEAR_ACCESSIBILITY_FOCUS, null);
+                target.clearFocus();
+                firstAction.performAccessibilityAction(AccessibilityNodeInfo.ACTION_CLEAR_ACCESSIBILITY_FOCUS, null);
+                firstAction.clearFocus();
+            });
+            waitForIdleSync();
+            require(!target.isAccessibilityFocused() && !target.isFocused() &&
+                            !firstAction.isAccessibilityFocused() && !firstAction.isFocused(),
+                    "Section target has no unsolicited focus before deliberate activation: " + target.getText());
+            runOnMainSync(() -> require(shortcut.performAccessibilityAction(
+                            AccessibilityNodeInfo.ACTION_CLICK, null),
+                    "Local Workspace navigation button rejected accessibility click."));
+            require(waitUntil(() -> activeNodeExact(automation, "Go to workspace section") != null, 2_000),
+                    "Every local navigation button opens the section dialog.");
+            assertWorkspaceNavigationDialog(automation, choiceTexts);
+            AccessibilityNodeInfo option = activeNodeExact(automation, choiceTexts[choiceIndex]);
+            require(option != null && option.isClickable(), "Requested workspace destination is selectable.");
+
+            AccessibilityEvent focusEvent = null;
+            if (touchExploration) {
+                focusEvent = automation.executeAndWaitForEvent(
+                        () -> require(option.performAction(AccessibilityNodeInfo.ACTION_CLICK),
+                                "Workspace destination rejected accessibility click."),
+                        event -> event.getEventType() == AccessibilityEvent.TYPE_VIEW_ACCESSIBILITY_FOCUSED &&
+                                event.getSource() != null && target.getText().toString().contentEquals(
+                                event.getSource().getText() == null ? "" : event.getSource().getText().toString()),
+                        2_000);
+            } else {
+                require(option.performAction(AccessibilityNodeInfo.ACTION_CLICK),
+                        "Workspace destination rejected accessibility click.");
+            }
+
+            int priorScrollY = previousScrollY;
+            if (shortcutIndex < 2 || shortcutIndex == 4)
+                require(waitUntil(() -> scroll.getScrollY() > priorScrollY, 2_000),
+                        "Forward or repeated section navigation advances scrollY.");
+            else
+                require(waitUntil(() -> scroll.getScrollY() < priorScrollY, 2_000),
+                        "Reverse section navigation moves scrollY upward.");
+            previousScrollY = scroll.getScrollY();
+            require(waitUntil(() -> fullyWithinViewport(target, scroll), 2_000),
+                    "Section navigation places its target heading fully in view: " + target.getText());
+            if (touchExploration) {
+                require(waitUntil(target::isAccessibilityFocused, 2_000),
+                        "Touch exploration places accessibility focus on: " + target.getText());
+                AccessibilityNodeInfo eventSource = focusEvent.getSource();
+                require(eventSource != null && target.getText().toString().contentEquals(
+                                eventSource.getText() == null ? "" : eventSource.getText().toString()),
+                        "The accessibility-focus event reports the exact target heading: " + target.getText());
+            } else if (!root().isInTouchMode()) {
+                require(waitUntil(firstAction::isFocused, 2_000),
+                        "Keyboard mode places ordinary focus on the first enabled section action.");
             }
         }
-        require(headingIndex >= 0 && previewIndex > headingIndex,
-                "Anatomical heading precedes its interactive visual preview in traversal order.");
+        runOnMainSync(() -> scroll.scrollTo(0, 0));
+        waitForIdleSync();
     }
 
     private void testAnatomySynchronization() throws Exception {
@@ -239,8 +540,10 @@ public final class TatappInstrumentation extends Instrumentation {
         SeekBar bodySize = findSeekBar("Body size");
         SeekBar skinTone = findSeekBar("Skin tone and complexion");
         View anatomy = findByContentPrefix("Interactive male anatomical preview");
-        require(region != null && bodySize != null && skinTone != null && anatomy != null,
-                "Anatomy picker, sliders, and rendered model are present.");
+        TextView placementSummary = findByContentPrefixAsText("Current placement.");
+        require(region != null && bodySize != null && skinTone != null && anatomy != null &&
+                        placementSummary != null,
+                "Anatomy picker, sliders, accessible summary, and rendered model are present.");
 
         int rightCalf = findSpinnerItemContaining(region, "Right calf");
         require(rightCalf >= 0, "The shared region catalog exposes Right calf.");
@@ -251,7 +554,7 @@ public final class TatappInstrumentation extends Instrumentation {
             setSeekBarProgress(skinTone, 78);
         });
         require(waitUntil(() -> {
-            CharSequence description = anatomy.getContentDescription();
+            CharSequence description = placementSummary.getContentDescription();
             return female.isChecked() && region.getSelectedItemPosition() == rightCalf &&
                     description != null && description.toString().toLowerCase(Locale.ROOT).contains("female") &&
                     description.toString().toLowerCase(Locale.ROOT).contains("right calf") &&
@@ -266,7 +569,7 @@ public final class TatappInstrumentation extends Instrumentation {
         Bitmap lighter = captureView(anatomy);
         runOnMainSync(() -> setSeekBarProgress(skinTone, 78));
         require(waitUntil(() -> skinTone.getProgress() == 78 &&
-                        anatomy.getContentDescription().toString().toLowerCase(Locale.ROOT)
+                        placementSummary.getContentDescription().toString().toLowerCase(Locale.ROOT)
                                 .contains("medium brown"), 3_000),
                 "The selected complexion returns to medium brown.");
         Bitmap darker = captureView(anatomy);
@@ -290,7 +593,7 @@ public final class TatappInstrumentation extends Instrumentation {
 
         runOnMainSync(() -> region.setSelection(rightCalf));
         require(waitUntil(() -> region.getSelectedItemPosition() == rightCalf &&
-                anatomy.getContentDescription().toString().toLowerCase(Locale.ROOT).contains("right calf"), 3_000),
+                placementSummary.getContentDescription().toString().toLowerCase(Locale.ROOT).contains("right calf"), 3_000),
                 "The standard picker updates the model after a visual-model selection.");
     }
 
@@ -575,6 +878,58 @@ public final class TatappInstrumentation extends Instrumentation {
                 "Reduced-motion semantics explain the non-animated effect.");
     }
 
+    private void testProcessingHeartbeatControl() throws Exception {
+        TextView candidate = findExact(root(), "Test processing heartbeat");
+        require(candidate instanceof Button && candidate.isEnabled(),
+                "The processing-heartbeat test is an enabled native Button.");
+        Button button = (Button) candidate;
+        require(button.getContentDescription() != null &&
+                        button.getContentDescription().toString().contains("three processing heartbeat pulses") &&
+                        button.getContentDescription().toString().contains("about ten seconds"),
+                "The heartbeat test explains its bounded three-pulse behavior.");
+        CheckBox offlineToggle = (CheckBox) findExact(root(), "Offline AI Describe");
+        require(offlineToggle != null && offlineToggle.isEnabled(),
+                "Offline AI is available before the independent heartbeat test starts.");
+
+        runOnMainSync(() -> require(button.performClick(),
+                "The processing-heartbeat test rejected deliberate activation."));
+        require(waitUntil(() -> "Stop heartbeat test".contentEquals(button.getText()), 3_000),
+                "The supported target must start the production heartbeat player; unavailable audio is a test failure.");
+        require(findContaining(root(), "processing heartbeat is unavailable") == null,
+                "The supported target did not enter the fail-soft unavailable path.");
+
+        require(!offlineToggle.isEnabled(),
+                "Offline AI cannot overlap the active heartbeat test.");
+        for (TextView navigation : findAllExact(root(), "Workspace navigation"))
+            require(navigation.isEnabled(),
+                    "Workspace navigation remains enabled during the heartbeat test.");
+        require(findContaining(root(), "Three pulses will play over about ten seconds") != null,
+                "The sole status region reports heartbeat-test start.");
+        require(waitUntil(() -> "Test processing heartbeat".contentEquals(button.getText()) &&
+                        findContaining(root(), "Processing heartbeat test complete") != null,
+                12_000), "The three-pulse heartbeat test stops automatically after about ten seconds.");
+        require(offlineToggle.isEnabled(),
+                "Offline AI is restored after automatic heartbeat-test completion.");
+
+        runOnMainSync(() -> require(button.performClick(), "The heartbeat test did not restart."));
+        require(waitUntil(() -> "Stop heartbeat test".contentEquals(button.getText()), 3_000),
+                "The heartbeat test can restart after a completed run.");
+        runOnMainSync(() -> require(button.performClick(), "The heartbeat test did not accept Stop."));
+        require(waitUntil(() -> "Test processing heartbeat".contentEquals(button.getText()) &&
+                        findContaining(root(), "Processing heartbeat test stopped") != null,
+                3_000), "Stop heartbeat test is synchronous and restores the controls.");
+
+        runOnMainSync(() -> require(button.performClick(), "The heartbeat test did not start for Back."));
+        require(waitUntil(() -> "Stop heartbeat test".contentEquals(button.getText()), 3_000),
+                "The heartbeat test is active before Back cancellation.");
+        sendKeyDownUpSync(KeyEvent.KEYCODE_BACK);
+        require(waitUntil(() -> "Test processing heartbeat".contentEquals(button.getText()) &&
+                        findContaining(root(), "Processing heartbeat test stopped") != null,
+                3_000), "Back stops the heartbeat test without leaving the workspace.");
+        require(findExact(root(), "Stage controls") != null && !activity.isFinishing(),
+                "Back heartbeat cancellation retains the active workspace.");
+    }
+
     private void testOfflineAiFence() throws Exception {
         CheckBox control = null;
         for (View view : descendants(root())) {
@@ -586,15 +941,22 @@ public final class TatappInstrumentation extends Instrumentation {
         require(control != null, "Offline AI Describe checkbox is present.");
         CheckBox target = control;
         runOnMainSync(target::performClick);
-        waitUntil(() -> !target.isChecked(), 1_500);
+        require(waitUntil(() -> {
+            TextView cancel = findExact(root(), "Cancel offline AI");
+            return !target.isChecked() || cancel instanceof Button &&
+                    isVisibilityChainVisible(cancel) && cancel.isEnabled();
+        }, 5_000), "Offline AI either declines safely or exposes its explicit cancellation action.");
         if (target.isChecked()) {
-            // A suitable tested tier must ask for consent before any network or
-            // installation work. Back cancels that native dialog without opting in.
-            sendKeyDownUpSync(KeyEvent.KEYCODE_BACK);
+            TextView cancel = findExact(root(), "Cancel offline AI");
+            require(cancel instanceof Button && isVisibilityChainVisible(cancel) && cancel.isEnabled(),
+                    "Active Offline AI work exposes an enabled cancellation action.");
+            runOnMainSync(cancel::performClick);
         }
         require(waitUntil(() -> !target.isChecked(), 5_000),
-                "Unavailable or declined model leaves the checkbox off.");
-        require(findContaining(root(), "descriptions are ready") == null, "No false ready claim is present.");
+                "Unavailable or canceled model leaves the checkbox off.");
+        require(!activity.isFinishing() && !activity.isDestroyed(),
+                "Canceling Offline AI keeps the workspace Activity alive.");
+        require(findContaining(root(), "descriptions ready") == null, "No false ready claim is present.");
     }
 
     private void testPickerCancellation() throws Exception {
@@ -684,9 +1046,12 @@ public final class TatappInstrumentation extends Instrumentation {
     }
 
     private void testBackAndResume() throws Exception {
-        invokeActivityMethod("onBackPressed");
+        Activity beforeBack = activity;
+        sendKeyDownUpSync(KeyEvent.KEYCODE_BACK);
         waitForIdleSync();
         TextView resume = findExact(root(), "Resume workspace");
+        require(activity == beforeBack && !activity.isFinishing() && !activity.isDestroyed(),
+                "Android Back retains the Activity while returning the workspace to Start.");
         require(resume instanceof Button && isVisibilityChainVisible(resume),
                 "Back exposes Resume workspace on Start.");
         runOnMainSync(resume::performClick);
@@ -695,6 +1060,8 @@ public final class TatappInstrumentation extends Instrumentation {
     }
 
     private void testRecreation() throws Exception {
+        require(!activity.isFinishing() && !activity.isDestroyed() && root().isAttachedToWindow(),
+                "The current Activity is alive and attached before recreate().");
         Spinner region = findSpinner("Body region");
         int rightCalf = findSpinnerItemContaining(region, "Right calf");
         SeekBar stage = findSeekBar("Visual development stage");
@@ -729,10 +1096,12 @@ public final class TatappInstrumentation extends Instrumentation {
                 "Non-default stage identity survives recreation. " + stageDiagnostics());
         Spinner restoredRegion = findSpinner("Body region");
         View restoredAnatomy = findByContentPrefix("Interactive female anatomical preview");
+        TextView restoredPlacement = findByContentPrefixAsText("Current placement.");
         require(restoredRegion != null && restoredRegion.getSelectedItemPosition() ==
-                        findSpinnerItemContaining(restoredRegion, "Right calf") && restoredAnatomy != null,
+                        findSpinnerItemContaining(restoredRegion, "Right calf") && restoredAnatomy != null &&
+                        restoredPlacement != null,
                 "Sex and region survive recreation.");
-        String description = restoredAnatomy.getContentDescription().toString().toLowerCase(Locale.ROOT);
+        String description = restoredPlacement.getContentDescription().toString().toLowerCase(Locale.ROOT);
         require(description.contains("female") && description.contains("right calf") &&
                         description.contains("180 centimeters") && description.contains("medium brown"),
                 "Model size, complexion, sex, and region semantics survive recreation.");
@@ -743,6 +1112,10 @@ public final class TatappInstrumentation extends Instrumentation {
 
     private void testLargeTextCompactLayout() {
         View windowRoot = root();
+        require(!activity.isFinishing() && !activity.isDestroyed() && windowRoot.isAttachedToWindow(),
+                "The current Activity is alive and attached before compact-layout validation.");
+        require(windowRoot.getWidth() > 0 && windowRoot.getHeight() > 0,
+                "The compact-layout validation starts from a measured visible window.");
         List<TextView> textViews = new ArrayList<>();
         List<Float> originalSizes = new ArrayList<>();
         for (View view : descendants(windowRoot)) {
@@ -1002,6 +1375,66 @@ public final class TatappInstrumentation extends Instrumentation {
         return null;
     }
 
+    private View firstActionForWorkspaceChoice(int choiceIndex) {
+        if (choiceIndex == 0) return findExact(root(), "Take photo");
+        List<TextView> navigation = findAllExact(root(), "Workspace navigation");
+        if (choiceIndex == 1) return navigation.size() > 1 ? navigation.get(1) : null;
+        if (choiceIndex == 2) return navigation.size() > 2 ? navigation.get(2) : null;
+        if (choiceIndex == 3) return navigation.size() > 3 ? navigation.get(3) : null;
+        return null;
+    }
+
+    private static void assertWorkspaceNavigationDialog(android.app.UiAutomation automation,
+            String[] choices) {
+        require(activeNodeExact(automation, "Go to workspace section") != null,
+                "Native workspace dialog has the exact title.");
+        AccessibilityNodeInfo list = activeNodeByClass(automation, "android.widget.ListView");
+        require(list != null && list.getChildCount() == 4,
+                "Native workspace dialog exposes exactly four choices.");
+        for (String choice : choices)
+            require(activeNodeExact(automation, choice) != null,
+                    "Native workspace dialog exposes choice: " + choice);
+        require(activeNodeExact(automation, "Cancel") != null,
+                "Native workspace dialog exposes Cancel and supports Back dismissal.");
+    }
+
+    private static AccessibilityNodeInfo activeNodeExact(android.app.UiAutomation automation, String text) {
+        return nodeExact(automation.getRootInActiveWindow(), text);
+    }
+
+    private static AccessibilityNodeInfo activeNodeByClass(android.app.UiAutomation automation,
+            String className) {
+        return nodeByClass(automation.getRootInActiveWindow(), className);
+    }
+
+    private static AccessibilityNodeInfo nodeExact(AccessibilityNodeInfo node, String text) {
+        if (node == null) return null;
+        if (node.getText() != null && text.contentEquals(node.getText())) return node;
+        for (int index = 0; index < node.getChildCount(); index++) {
+            AccessibilityNodeInfo found = nodeExact(node.getChild(index), text);
+            if (found != null) return found;
+        }
+        return null;
+    }
+
+    private static AccessibilityNodeInfo nodeByClass(AccessibilityNodeInfo node, String className) {
+        if (node == null) return null;
+        if (node.getClassName() != null && className.contentEquals(node.getClassName())) return node;
+        for (int index = 0; index < node.getChildCount(); index++) {
+            AccessibilityNodeInfo found = nodeByClass(node.getChild(index), className);
+            if (found != null) return found;
+        }
+        return null;
+    }
+
+    private static boolean nodeLabelStartsWith(AccessibilityNodeInfo node, String prefix) {
+        if (node == null) return false;
+        CharSequence text = node.getText();
+        CharSequence description = node.getContentDescription();
+        return text != null && text.toString().startsWith(prefix) ||
+                description != null && description.toString().startsWith(prefix);
+    }
+
     private String activeSourceName() {
         for (View view : descendants(root())) {
             CharSequence description = view.getContentDescription();
@@ -1131,6 +1564,14 @@ public final class TatappInstrumentation extends Instrumentation {
         return null;
     }
 
+    private static List<TextView> findAllExact(View root, String text) {
+        List<TextView> result = new ArrayList<>();
+        for (View view : descendants(root))
+            if (view instanceof TextView && text.contentEquals(((TextView) view).getText()))
+                result.add((TextView) view);
+        return result;
+    }
+
     private static TextView findContaining(View root, String text) {
         String needle = text.toLowerCase(Locale.ROOT);
         for (View view : descendants(root)) {
@@ -1193,6 +1634,20 @@ public final class TatappInstrumentation extends Instrumentation {
             current = (View) current.getParent();
         }
         return true;
+    }
+
+    private static boolean intersectsViewport(View item, ScrollView scroll) {
+        Rect itemBounds = new Rect();
+        Rect viewportBounds = new Rect();
+        return item.getGlobalVisibleRect(itemBounds) && scroll.getGlobalVisibleRect(viewportBounds) &&
+                Rect.intersects(itemBounds, viewportBounds);
+    }
+
+    private static boolean fullyWithinViewport(View item, ScrollView scroll) {
+        Rect itemBounds = new Rect();
+        Rect viewportBounds = new Rect();
+        return item.getGlobalVisibleRect(itemBounds) && scroll.getGlobalVisibleRect(viewportBounds) &&
+                viewportBounds.contains(itemBounds);
     }
 
     private static String describe(View view) {

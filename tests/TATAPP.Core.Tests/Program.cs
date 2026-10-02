@@ -56,6 +56,7 @@ internal static class Program
             ("Description preload is sequential and complete", DescriptionPreloadIsSequential),
             ("Description preload reuses a single model session", DescriptionPreloadReusesSession),
             ("Description preload rechecks runtime headroom", DescriptionPreloadRechecksHeadroom),
+            ("Processing heartbeat waveform is deterministic and shared", Run(ProcessingHeartbeatIsDeterministic)),
             ("Canceled description preload commits no cache", CanceledPreloadCommitsNothing),
             ("Concurrent identical preload requests are deduplicated", ConcurrentPreloadsAreDeduplicated),
             ("Uncacheable concurrent preloads share one failure", UncacheablePreloadsShareFailure),
@@ -105,6 +106,49 @@ internal static class Program
         Assert(state.Anatomy.RotationDegrees == -62);
         Assert(state.Anatomy.CameraDistance == AnatomicalCameraFraming.OverviewDistance);
         Assert(!state.Anatomy.ReducedMotion && !state.OfflineAiEnabled && !state.HasSource);
+    }
+
+    private static void ProcessingHeartbeatIsDeterministic()
+    {
+        Assert(ProcessingHeartbeatWaveform.SampleRate == 22_050);
+        Assert(ProcessingHeartbeatWaveform.DurationMilliseconds == 420);
+        Assert(ProcessingHeartbeatWaveform.FirstPulseDelayMilliseconds <= 1_000);
+        Assert(ProcessingHeartbeatWaveform.PulseCadenceMilliseconds == 4_000);
+        Assert(ProcessingHeartbeatWaveform.MaximumCadenceGain == 2.5);
+        Assert(ProcessingHeartbeatWaveform.FirstToneFrequency == 620);
+        Assert(ProcessingHeartbeatWaveform.SecondToneFrequency == 760);
+
+        var first = ProcessingHeartbeatWaveform.CreatePcm16();
+        var second = ProcessingHeartbeatWaveform.CreatePcm16();
+        Assert(first.Length == 9_261 && first.SequenceEqual(second));
+        Assert(first.Take(900).All(sample => sample == 0));
+        Assert(first.Skip(1_100).Take(1_300).Any(sample => sample != 0));
+        Assert(first.Skip(3_000).Take(1_200).All(sample => sample == 0));
+        Assert(first.Skip(4_700).Take(1_500).Any(sample => sample != 0));
+        Assert(first.Max(sample => Math.Abs((int)sample)) < short.MaxValue / 4);
+        var sourcePeak = first.Max(sample => Math.Abs((int)sample)) / (double)short.MaxValue;
+        Assert(sourcePeak > 0.09 && sourcePeak <= 0.101);
+
+        var cadence = ProcessingHeartbeatWaveform.CreateCadenceBuffer(2.5);
+        var pulseOffset = ProcessingHeartbeatWaveform.SampleRate *
+                          ProcessingHeartbeatWaveform.FirstPulseDelayMilliseconds / 1000;
+        Assert(cadence.Length == ProcessingHeartbeatWaveform.SampleRate * 4);
+        Assert(cadence.Take(pulseOffset).All(sample => sample == 0));
+        Assert(cadence.Skip(pulseOffset + first.Length).All(sample => sample == 0));
+        Assert(cadence.Skip(pulseOffset).Take(first.Length).Select((sample, index) =>
+            sample == (short)Math.Clamp(Math.Round(first[index] * 2.5), short.MinValue, short.MaxValue)).All(equal => equal));
+        var cadencePeak = cadence.Max(sample => Math.Abs((int)sample)) / (double)short.MaxValue;
+        Assert(cadencePeak > 0.22 && cadencePeak <= 0.251);
+        AssertThrows<ArgumentOutOfRangeException>(() => ProcessingHeartbeatWaveform.CreateCadenceBuffer(0));
+        AssertThrows<ArgumentOutOfRangeException>(() => ProcessingHeartbeatWaveform.CreateCadenceBuffer(2.51));
+        AssertThrows<ArgumentOutOfRangeException>(() => ProcessingHeartbeatWaveform.CreateCadenceBuffer(double.NaN));
+
+        var wave = ProcessingHeartbeatWaveform.CreateWaveFile();
+        Assert(wave.Length == 44 + first.Length * sizeof(short));
+        Assert(Encoding.ASCII.GetString(wave, 0, 4) == "RIFF");
+        Assert(Encoding.ASCII.GetString(wave, 8, 4) == "WAVE");
+        Assert(BitConverter.ToInt32(wave, 24) == ProcessingHeartbeatWaveform.SampleRate);
+        Assert(BitConverter.ToInt32(wave, 40) == first.Length * sizeof(short));
     }
 
     private static void AnatomicalGeometryCoversEveryRegion()

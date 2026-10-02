@@ -300,6 +300,12 @@ made descriptions immediately available at the captured stages 1, 8, 9, and
 16. The process did not OOM. PSS was approximately 2.4 GB while inference was
 active and approximately 302 MB after model-session disposal.
 
+The current source contract commits the description cache, stops the heartbeat,
+restores the controls, and only then publishes that exact sentence through the
+sole polite status region. It does not toggle the live region or send a separate
+announcement event. That revised one-path TalkBack behavior remains pending
+human re-verification.
+
 The installed Machine Perception Node could not be reused because its inference
 service and model files are private/non-exported and its package is signed by a
 different identity. TATAPP did not bypass that boundary: the full run used
@@ -322,9 +328,32 @@ the staging directory is atomically promoted; incomplete or invalid sets are
 never reported ready. Preloading opens one model session, processes every
 current catalog stage strictly in sequence with renewed memory checks, commits
 the description cache only as a complete batch, and disposes media/tensor/model
-resources on cancellation or completion. The heartbeat runs only during
-foreground preprocessing, with textual progress and one final ready/error
-status. No photograph or generated description is transmitted.
+resources on cancellation or completion. The Android heartbeat runs through
+`USAGE_ASSISTANCE_ACCESSIBILITY` and `CONTENT_TYPE_SONIFICATION` so it follows
+the independently controlled accessibility volume. One four-second static loop
+contains about 900 ms of pre-roll, the shared 420 ms two-note pulse amplified by
+a bounded Android-only 2.5x PCM gain (about -12 dBFS), and trailing silence. The
+player verifies its write, loop, seek, and playing results, permits one bounded
+recreation retry, and never requests audio focus or changes volume, DND, or
+sound settings. It is active only during foreground preprocessing and releases
+synchronously on every terminal/lifecycle path. **Test processing heartbeat**
+exercises that exact player for three pulses in about ten seconds without
+requiring a model; its Stop state and Back cancel immediately, and it cannot
+overlap Offline AI. Textual progress and the sole polite status region remain
+authoritative if audio is unavailable. No photograph or generated description
+is transmitted.
+
+The remediation above followed a Poco observation where media volume was 0,
+accessibility volume was 10/15, DND was off, and the former short music-stream
+timer pulse was not audible. On 2026-10-02, the revised signed APK
+(20,198,175 bytes; SHA-256
+`7e9469cdf2c8f87e52c6b5fce8d546f14159eb5358d601b7c3f1d3c095715a77`)
+replacement-installed on the Poco F7 Ultra and its installed `base.apk` matched
+byte-for-byte. With Google TalkBack enabled and accessibility volume at 10/15,
+the user heard all three two-tone pulses across about ten seconds and TalkBack
+announced the test start and completion. This validates the direct
+production-path heartbeat test only, not a fresh full 16-stage AI run or its
+readiness announcement.
 
 Model files and GGUF archives must not be committed or included in an APK.
 Review their Apache-2.0 terms at the linked upstream repositories in
@@ -477,14 +506,15 @@ No row implies human TalkBack or visual-quality validation.
 | Native runtime packaging | Final APK plus `scripts/android/verify-apk.sh` | Pass: required runtime libraries are present for both packaged ABIs; 132 packaged ELF files are 16 KiB aligned. |
 | Android Release build, warnings as errors | Full solution Release build | Pass: 0 warnings, 0 errors. |
 | APK metadata, ABIs, permissions, alignment, signature | `scripts/android/verify-apk.sh artifacts/android/TATAPP-0.3.0-evaluation-arm64-x86_64.apk` | Pass: package `com.grayscaleconsultants.tatapp`, version 0.3.0/1, min 26, target 36, `arm64-v8a` + `x86_64`, only `INTERNET`, 132/132 ELF files 16 KiB aligned, APK v2/v3 verified. |
-| Connected Java instrumentation | API 36 x86_64 16 KiB emulator; `scripts/test-android-instrumentation.sh` | Pass: 27 passed, 0 failed, 2 skipped. The stage-debounce/low-memory label-and-export regression passed; historical skips were loaded-model integrated UI/heartbeat and human TalkBack. The later Poco run separately covered the loaded-model UI path, not human TalkBack. |
+| Connected Java instrumentation | API 36 x86_64 16 KiB emulator; `scripts/test-android-instrumentation.sh` | Historical pass: 27 passed, 0 failed, 2 skipped. The stage-debounce/low-memory label-and-export regression passed; historical skips were loaded-model integrated UI/heartbeat and human TalkBack. On 2026-10-02 the target app installed on the Poco, but HyperOS blocked the temporary harness install with `INSTALL_FAILED_USER_RESTRICTED`; no new harness pass is claimed. |
 | Exact-model offline smoke | API 36 x86_64 16 KiB emulator; synthetic 192 px Original image | Pass: actual Qwen3-VL two-call inference produced accurate nonempty black-ring output, took about 8 minutes, peaked near 2.17 GB PSS, and released inference memory. This remains the narrow x86_64 qualification result. |
 | ARM64 full offline preload | API 36 Poco F7 Ultra; exact catalog model/projector; production UI; Wi-Fi/mobile disabled from stage 6 through 16 | Pass within observed scope: checksum verification completed, all 16 descriptions completed, controls remained disabled during work, ready status appeared, heartbeat stopped, stages 1/8/9/16 were captured, and no OOM occurred. Anatomical description quality was weak; no human TalkBack claim. |
+| Direct production-path heartbeat test | API 36 Poco F7 Ultra; Google TalkBack enabled; accessibility volume 10/15 | Pass on 2026-10-02: all three two-tone pulses were heard across about ten seconds, and TalkBack announced start and completion. This does not validate a fresh full 16-stage AI run or its readiness announcement. |
 | Final APK install and launch | API 36 x86_64 emulator; non-incremental install, cold launch offline, and same-version `-r` install | Pass. The `-r` result validates reinstall mechanics, not migration from an older `versionCode`. |
 | ARM64 installation | API 32 Rokid device; fresh install and resumed Activity | Pass for installation and Activity resumption only; no human visual or accessibility validation was performed. |
 | Other available Android targets | API 36 Poco; `armeabi-v7a` watch | Poco accepted the same-signed capture build and completed the bounded offline-AI run above. The final isolated APK then replacement-installed, its pulled `base.apk` matched byte-for-byte, and cold launch completed in 256 ms. The 32-bit watch is outside the documented ABI range. |
 | Manual image/lifecycle exercise | API 36 x86_64 emulator | Pass within observed scope: system picker loaded a 256x256 PNG and 6000x4000 JPEG; stage 2 settled ready; rotation retained stage 12 anatomy; background/resume and a background process kill restored the workspace; 2x-font start screen remained usable; system DocumentsUI saved the selected 256x256 Original image as a new PNG. |
 | BLACK WIDOW default-browser dispatch | API 36 Poco; package-resolution logs and foreground capture | Pass for initial dispatch: TATAPP package-targeted Chrome with the exact configured URL. Chrome then handed the destination to Facebook. The capture returned by explicitly relaunching TATAPP, so direct Back restoration and TalkBack focus preservation remain unverified. |
 | Managed/native memory observations | API 36 x86_64 emulator editing samples; API 36 ARM64 Poco inference samples | Emulator editing ranged from about 50 MB cold to 111 MB after repeated import and 90 MB after background trim. Poco PSS was approximately 2.4 GB during active full-stage inference and approximately 302 MB after session disposal, with no observed OOM. This is one run, not a repeated or thermal/endurance profile. |
-| Human TalkBack script | `docs/ACCESSIBILITY.md` | Unverified: no person performed the speech-quality and Explore-by-Touch script on the final APK. |
-| Final APK identity, size and SHA-256 | `stat`; `sha256sum`; APK signer verification; pulled-Poco `base.apk` comparison | `artifacts/android/TATAPP-0.3.0-evaluation-arm64-x86_64.apk`, 20,140,831 bytes, SHA-256 `14928712d2600511a176bcfe197674e282068def2950dea0378a9817f9ed24fc`, signer SHA-256 `eac3df9aba3e08437bc988682566f072e52d2dde6bda373daa998cdee74d9f90`; the replacement-installed Poco APK matched byte-for-byte. |
+| Human TalkBack script | `docs/ACCESSIBILITY.md` | The direct heartbeat test's start/completion announcements passed with Google TalkBack on 2026-10-02. The complete speech-quality, focus, Explore-by-Touch, and full AI readiness-announcement script remains unverified. |
+| Final APK identity, size and SHA-256 | `stat`; `sha256sum`; APK signer verification; pulled-Poco `base.apk` comparison | `artifacts/android/TATAPP-0.3.0-evaluation-arm64-x86_64.apk`, 20,198,175 bytes, SHA-256 `7e9469cdf2c8f87e52c6b5fce8d546f14159eb5358d601b7c3f1d3c095715a77`, signer SHA-256 `eac3df9aba3e08437bc988682566f072e52d2dde6bda373daa998cdee74d9f90`; the replacement-installed Poco APK matched byte-for-byte. |

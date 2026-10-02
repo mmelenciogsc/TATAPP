@@ -178,9 +178,16 @@ strictly in order with a fresh memory check before each stage. Images, visual
 tokens, context, output, and CPU threads are capped. A batch is committed to the
 bounded description cache only after every stage succeeds. Cancellation,
 pressure, malformed output, or inference failure disposes the session and
-retains no partial ready cache. The foreground-only heartbeat is supplementary
-to visible progress and stops on completion, cancellation, error, stop, or
-low-memory callbacks.
+retains no partial ready cache. The foreground-only Android heartbeat is a
+four-second `MODE_STATIC` loop on Android's accessibility-assistance audio
+usage: about 900 ms of pre-roll, the shared 420 ms two-note pulse at a bounded
+Android-only 2.5x PCM gain, then silence. Keeping that route active avoids
+timer/ramp loss during CPU-heavy inference. Startup checks the full write,
+loop-point, seek, and playing state and permits one bounded recreation retry;
+failure leaves visible semantic progress authoritative. Stop synchronously
+releases the track on completion, cancellation, error, Back, source replacement,
+backgrounding, destruction, or low-memory callbacks. Windows retains its
+existing waveform amplitude and 1200 ms first delay.
 
 ## Privacy and external navigation
 
