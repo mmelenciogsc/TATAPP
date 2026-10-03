@@ -1,0 +1,53 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package
+    Name="Tattoo Art Prepper (TATAPP)"
+    Manufacturer="Grayscale Consultants"
+    Version="$(var.ProductVersion)"
+    UpgradeCode="{4AAD2908-6CAE-4F59-A6B6-5D9469AB8330}"
+    Language="1033"
+    InstallerVersion="500"
+    Scope="perUser">
+
+    <SummaryInformation
+      Description="Tattoo Art Prepper for 64-bit Windows 11"
+      Manufacturer="Grayscale Consultants" />
+    <MajorUpgrade DowngradeErrorMessage="A newer version of TATAPP is already installed." />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <Feature Id="MainFeature" Title="Tattoo Art Prepper" Level="1">
+      <ComponentRef Id="ApplicationComponent" />
+    </Feature>
+
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="LocalProgramsFolder" Name="Programs">
+        <Directory Id="INSTALLFOLDER" Name="TATAPP">
+          <Component Id="ApplicationComponent" Guid="{7795841B-A822-48BC-A26B-37D433F759F4}">
+            <File Id="TATAPPExecutable" Source="$(var.PublishDir)\TATAPP.exe">
+              <Shortcut
+                Id="ApplicationStartMenuShortcut"
+                Directory="ApplicationProgramsFolder"
+                Name="TATAPP"
+                Description="Tattoo Art Prepper"
+                WorkingDirectory="INSTALLFOLDER" />
+            </File>
+            <RemoveFolder Id="RemoveInstallFolder" Directory="INSTALLFOLDER" On="uninstall" />
+            <RemoveFolder Id="RemoveLocalProgramsFolder" Directory="LocalProgramsFolder" On="uninstall" />
+            <RemoveFolder Id="RemoveApplicationProgramsFolder" Directory="ApplicationProgramsFolder" On="uninstall" />
+            <RegistryValue
+              Root="HKCU"
+              Key="Software\Grayscale Consultants\TATAPP"
+              Name="Installed"
+              Type="integer"
+              Value="1"
+              KeyPath="yes" />
+          </Component>
+        </Directory>
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="TATAPP" />
+    </StandardDirectory>
+
+  </Package>
+</Wix>

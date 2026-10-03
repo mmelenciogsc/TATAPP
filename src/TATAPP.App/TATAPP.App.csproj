@@ -6,6 +6,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>TATAPP</AssemblyName>
     <RootNamespace>TATAPP.App</RootNamespace>
+    <VersionPrefix>0.3.1</VersionPrefix>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\TATAPP.Core\TATAPP.Core.csproj" />

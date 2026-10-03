@@ -182,12 +182,23 @@ dotnet run --project .\src\TATAPP.App\TATAPP.App.csproj
 .\scripts\publish.ps1
 ```
 
-The self-contained Windows output is `artifacts\publish\win-x64`. Android has
-separate build/signing requirements; signing material must remain outside Git.
+The self-contained Windows output is `artifacts\publish\win-x64`. Build and
+inspect the per-user 64-bit Windows MSI with:
+
+```powershell
+.\scripts\build-installer.ps1
+.\scripts\verify-installer.ps1 -InstallerPath .\artifacts\installer\TATAPP-0.3.1-win-x64.msi
+```
+
+Generated packages and signing material remain outside Git. Release installers
+are unsigned unless a release operator signs them outside the repository with
+separately protected credentials. Android has separate build/signing
+requirements.
 
 ## Documentation
 
 - [Android build, release, privacy, model, and troubleshooting guide](docs/ANDROID.md)
+- [Windows installer build and verification](docs/WINDOWS-INSTALLER.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Accessibility and manual TalkBack script](docs/ACCESSIBILITY.md)
 - [Feature and invariant matrix](docs/FEATURE_MATRIX.md)

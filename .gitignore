@@ -6,6 +6,14 @@ obj/
 *.suo
 *.tmp
 *.partial
+*.exe
+*.msi
+*.msix
+*.zip
+*.pfx
+*.p12
+*.pvk
+*.snk
 artifacts/
 /.android-native-cache/
 TestResults/
