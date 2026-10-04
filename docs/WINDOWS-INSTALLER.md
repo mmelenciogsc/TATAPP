@@ -26,6 +26,28 @@ operator signs it outside the repository with separately protected
 credentials. Always report an unsigned package as unsigned; never add a
 certificate or private key to this repository.
 
+## Local development signing
+
+For testing on a machine you control, create a non-exportable self-signed
+certificate and trust its public certificate for the current Windows user:
+
+```powershell
+$certificate = .\scripts\create-local-signing-certificate.ps1
+.\scripts\sign-installer.ps1 -Thumbprint $certificate.Thumbprint
+```
+
+The signing script publishes the application, signs `TATAPP.exe`, rebuilds the
+MSI around that signed executable, signs the MSI, and verifies both signatures.
+The private key remains in the current user's Windows certificate store. The
+exported `.cer` contains only the public certificate and is placed under the
+ignored `artifacts` directory.
+
+This local certificate is trusted only for the Windows user and machine where
+the creation script runs. It does not establish a publicly trusted publisher,
+does not provide SmartScreen reputation, and must not be represented as release
+signing. Public distribution requires a certificate from a publicly trusted
+code-signing provider or a managed service such as Azure Artifact Signing.
+
 ## Install and uninstall
 
 Double-click the MSI for the normal Windows Installer interface. A release

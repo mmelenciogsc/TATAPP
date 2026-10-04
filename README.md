@@ -195,6 +195,10 @@ are unsigned unless a release operator signs them outside the repository with
 separately protected credentials. Android has separate build/signing
 requirements.
 
+For explicitly local-only signing tests, the Windows installer guide also
+documents creation of a non-exportable certificate trusted by the current
+Windows user. That certificate does not make packages publicly trusted.
+
 ## Documentation
 
 - [Android build, release, privacy, model, and troubleshooting guide](docs/ANDROID.md)

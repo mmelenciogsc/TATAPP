@@ -1,5 +1,6 @@
 param(
-    [string]$Configuration = "Release"
+    [string]$Configuration = "Release",
+    [switch]$PublishOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -39,6 +40,11 @@ $publishedFiles = @(Get-ChildItem -LiteralPath $publishDirectory -File)
 if ($publishedFiles.Count -ne 1 -or $publishedFiles[0].Name -ne "TATAPP.exe") {
     $publishedNames = $publishedFiles.Name -join ", "
     throw "Expected a single self-contained TATAPP.exe, but publish produced: $publishedNames"
+}
+
+if ($PublishOnly) {
+    Write-Output "Published self-contained TATAPP application: $($publishedFiles[0].FullName)"
+    return
 }
 
 & $dotnet build $installerProject `
